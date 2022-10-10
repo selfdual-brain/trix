@@ -1,6 +1,6 @@
-package com.selfdualbrain.trix.engine
+package com.selfdualbrain.trix.event_based_engine
 
-import com.selfdualbrain.trix.protocol_model.{Message, Round, ValidatorId}
+import com.selfdualbrain.trix.protocol_model.{Message, Round, NodeId}
 
 /**
  * Defines features of an agent ("validator") to be compatible with TrixEngine.
@@ -16,7 +16,7 @@ trait Validator {
  * If malicious players join the P2P network they may create many nodes sharing the same validator id.
  * In a perfectly healthy network with honest players only, validator-id maps 1-1 to P2P node id.
  */
-  def validatorId: ValidatorId
+  def validatorId: NodeId
 
   /**
    * Node id (peer-to-peer network member address).

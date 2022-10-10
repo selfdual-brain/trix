@@ -1,6 +1,6 @@
 package com.selfdualbrain.trix.protocol_model
 
-sealed abstract class SafeValueProof{
+sealed abstract class SafeValueProof {
 }
 
 object SafeValueProof {

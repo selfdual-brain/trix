@@ -1,7 +1,7 @@
-package com.selfdualbrain.trix.protocol_model
+package com.selfdualbrain.trix.event_based_engine
 
 import com.selfdualbrain.continuum.time.TimeDelta
-import com.selfdualbrain.trix.engine.{P2PNode, Validator}
+import com.selfdualbrain.trix.protocol_model._
 import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
@@ -12,7 +12,7 @@ import scala.collection.mutable.ListBuffer
  * This is a honest validator implementation (= no malicious behaviour)
  */
 class HonestFullySynchronousValidator(
-                                       id: ValidatorId,
+                                       id: NodeId,
                                        node: P2PNode,
                                        roundLength: TimeDelta,
                                        val inputSet: CollectionOfMarbles
@@ -25,9 +25,9 @@ class HonestFullySynchronousValidator(
   private var commitCandidate: Option[CollectionOfMarbles] = None
   private var lateMessagesCount: Int = 0
   private var earlyMessagesBuffer: mutable.Buffer[Message] = new ListBuffer[Message]
-  private val equivocators
+  private val equivocators: mutable.Set[NodeId] = new mutable.HashSet[NodeId]
 
-  override def validatorId: ValidatorId = id
+  override def validatorId: NodeId = id
 
   override def nodeId: P2PNode = node
 
@@ -35,13 +35,7 @@ class HonestFullySynchronousValidator(
     log.debug("startup")
   }
 
-  override def onNewMessageArrived(msg: Message): Unit = {
-    if
+  override def onNewMessageArrived(msg: Message): Unit = ???
 
-
-  }
-
-  override def onRoundStarted(iteration: Marble, round: Round): Unit = {
-
-  }
+  override def onRoundStarted(iteration: Marble, round: Round): Unit = ???
 }

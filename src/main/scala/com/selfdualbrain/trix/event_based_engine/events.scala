@@ -1,6 +1,6 @@
-package com.selfdualbrain.trix.engine
+package com.selfdualbrain.trix.event_based_engine
 
-import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, Message, Round, ValidatorId}
+import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, Message, Round, NodeId}
 
 sealed abstract class TrixEventPayload {
 
@@ -20,7 +20,7 @@ object TrixEventPayload {
 
   //#################### SEMANTIC ####################
 
-  case class EquivocationDetected(validator: ValidatorId) extends TrixEventPayload
+  case class EquivocationDetected(validator: NodeId) extends TrixEventPayload
 
   case class ConsensusAchieved(iteration: Int, round: Round, agreedCollection: CollectionOfMarbles) extends TrixEventPayload
 

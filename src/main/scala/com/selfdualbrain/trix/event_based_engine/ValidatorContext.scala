@@ -1,4 +1,4 @@
-package com.selfdualbrain.trix.engine
+package com.selfdualbrain.trix.event_based_engine
 
 import com.selfdualbrain.continuum.time.{SimTimepoint, TimeDelta}
 import com.selfdualbrain.trix.protocol_model.Message

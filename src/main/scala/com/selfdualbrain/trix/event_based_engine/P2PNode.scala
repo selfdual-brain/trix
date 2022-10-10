@@ -1,4 +1,4 @@
-package com.selfdualbrain.trix.engine
+package com.selfdualbrain.trix.event_based_engine
 
 /**
  * Represents P2P network identification of a computer (process).
