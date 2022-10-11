@@ -6,6 +6,5 @@ package com.selfdualbrain.trix.protocol_model
  *
  * Remark: Encapsulated as a class so we can later easily change the implementation.
  */
-class CollectionOfMarbles(elements: Array[Marble]) {
-  private val collection: Array[Marble] = elements.sorted
+class CollectionOfMarbles(elements: Set[Marble]) {
 }
