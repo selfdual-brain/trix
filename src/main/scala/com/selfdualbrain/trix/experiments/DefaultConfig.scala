@@ -13,4 +13,7 @@ object DefaultConfig extends Config {
   override val averageNumberOfActiveNodes: Double = 10
   override val averageNumberOfLeaders: Double = 1
   override val maxNumberOfIterations: Int = 500
+  override val eligibilityRngMasterSeed: Long = 42
+  override val msgDeliveryRngSeed: Long = 299792458
+  override val initialSizeOfInboxBuffer: Int = 100
 }

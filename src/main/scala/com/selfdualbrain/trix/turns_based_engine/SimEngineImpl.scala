@@ -1,10 +1,8 @@
 package com.selfdualbrain.trix.turns_based_engine
 
-import com.selfdualbrain.continuum.data_structures.FastIntMap
 import com.selfdualbrain.trix.protocol_model.{Message, NodeId, Round}
 import org.apache.commons.math3.random.MersenneTwister
 
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 class SimEngineImpl(config: Config) extends SimEngine {
@@ -12,6 +10,7 @@ class SimEngineImpl(config: Config) extends SimEngine {
   private var currentRound: Option[Round] = None
   private var currentIteration: Int = 0
   private val eligibilityMasterRng = new MersenneTwister(config.eligibilityRngMasterSeed)
+  private val msgDeliveryRng = new MersenneTwister(config.msgDeliveryRngSeed)
   private val currentRoundProcess: Option[SingleRoundProcess] = None
 
   override def playNextRound(): Unit = {
@@ -54,9 +53,14 @@ class SimEngineImpl(config: Config) extends SimEngine {
       currentRoundProcess.get.registerSend(msg, destination)
     }
 
-    override def inbox(): Iterable[Message] =
-      currentRoundProcess.get.getAllMessagesDeliveredTo(nodeId).filter()
+    override def inbox(): Iterable[Message] = {
+      val messagesCollection = currentRoundProcess.get.getAllMessagesDeliveredTo(nodeId)
+      if (config.isNetworkReliable)
+        return messagesCollection
+      else
+        return messagesCollection.filter(msg => msgDeliveryRng.nextDouble() > config.probabilityOfAMessageGettingLost)
     }
+
   }
 
   class SingleRoundProcess(iteration: Int, round: Round, salt: Int) {
