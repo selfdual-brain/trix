@@ -8,5 +8,5 @@ trait NodeContext {
   def isActiveInCurrentRound: Boolean
   def broadcast(msg: Message): Unit
   def send(msg: Message, destination: NodeId): Unit
-  def receive(): Iterator[Message]
+  def inbox(): Iterable[Message]
 }

@@ -1,6 +1,7 @@
 package com.selfdualbrain.trix.protocol_model
 
 sealed abstract class Message {
+  def creator: NodeId
 }
 
 object Message {
