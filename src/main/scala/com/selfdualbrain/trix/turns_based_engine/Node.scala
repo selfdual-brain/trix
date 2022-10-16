@@ -1,13 +1,11 @@
 package com.selfdualbrain.trix.turns_based_engine
 
-import com.selfdualbrain.trix.protocol_model.NodeId
+import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, NodeId}
 
 import scala.collection.mutable
 
-abstract class Node(id: NodeId, simConfig: Config, nodeContext: NodeContext) {
+abstract class Node(val id: NodeId, simConfig: Config, context: NodeContext, inputSet: CollectionOfMarbles) {
   override def toString: String = s"node-$id"
-
-  protected val equivocators: mutable.Set[NodeId] = new mutable.HashSet[NodeId]
 
   def executeSendingPhase(): Unit
 

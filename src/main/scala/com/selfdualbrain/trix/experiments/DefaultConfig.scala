@@ -1,5 +1,6 @@
 package com.selfdualbrain.trix.experiments
 
+import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, NodeId}
 import com.selfdualbrain.trix.turns_based_engine.Config
 
 object DefaultConfig extends Config {
@@ -16,4 +17,6 @@ object DefaultConfig extends Config {
   override val eligibilityRngMasterSeed: Long = 42
   override val msgDeliveryRngSeed: Long = 299792458
   override val initialSizeOfInboxBuffer: Int = 100
+  override val inputSetsGeneratorSeed: Long = 42
+  override val manuallyProvidedInputSets: Option[Map[NodeId, CollectionOfMarbles]] = None
 }

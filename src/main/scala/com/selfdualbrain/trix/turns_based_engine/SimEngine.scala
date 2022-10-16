@@ -4,5 +4,6 @@ import com.selfdualbrain.trix.protocol_model.NodeId
 
 trait SimEngine {
   def playNextRound(): Unit
-  def nodesWhichTerminated(): Set[NodeId]
+  def nodesWhichTerminated(): Iterator[NodeId]
+  def numberOfNodesWhichTerminated(): Int
 }

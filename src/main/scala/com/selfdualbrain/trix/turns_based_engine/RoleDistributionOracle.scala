@@ -4,7 +4,7 @@ import com.selfdualbrain.trix.protocol_model.NodeId
 import org.apache.commons.math3.random.MersenneTwister
 
 trait RoleDistributionOracle {
-  def isActive(validator: NodeId): Boolean
+  def isNodeActive(validator: NodeId): Boolean
 }
 
 //we assume node ids form a 0-based interval
@@ -14,7 +14,7 @@ class CachingRoleDistributionOracle(numberOfNodes: Int, electedSubsetAverageSize
 
   runElection()
 
-  override def isActive(validator: NodeId): Boolean = cache(validator)
+  override def isNodeActive(validator: NodeId): Boolean = cache(validator)
 
   private def runElection(): Unit = {
     val rng = new MersenneTwister(rngSeed)

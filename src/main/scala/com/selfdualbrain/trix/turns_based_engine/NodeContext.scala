@@ -4,9 +4,15 @@ import com.selfdualbrain.trix.protocol_model.{Message, NodeId, Round}
 
 trait NodeContext {
   def iteration: Int
-  def currentRound: Option[Round]
+  def currentRound: Round
   def isActiveInCurrentRound: Boolean
   def broadcast(msg: Message): Unit
   def send(msg: Message, destination: NodeId): Unit
   def inbox(): Iterable[Message]
+
+  //"malicious" node implementations should not signal "termination of protocol"
+  //if they want to participate in communication forever
+  //in "real life" termination of protocol in an internal flag of a node, here we share it with
+  //simulation engine to make the simulator API more comfortable
+  def signalProtocolTermination(): Unit
 }
