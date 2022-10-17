@@ -60,7 +60,7 @@ class SimEngineImpl(config: Config) extends SimEngine {
           throw new RuntimeException(s"trying to access node context outside of round - node $nodeId")
       }
 
-    override def isActiveInCurrentRound: Boolean = currentRoundProcess.get.roleDistributionOracle.isNodeActive(nodeId)
+    override def amIActiveInCurrentRound: Boolean = currentRoundProcess.get.roleDistributionOracle.isNodeActive(nodeId)
 
     override def broadcast(msg: Message): Unit = {
       currentRoundProcess.get.registerMsgBroadcast(msg)
@@ -148,8 +148,8 @@ class SimEngineImpl(config: Config) extends SimEngine {
   def initializeNodes(): Array[NodeBox] = {
     val result = new Array[NodeBox](config.numberOfNodes)
 
-    val numberOfHonestNodes: Int = config.numberOfNodes - config.numberOfMaliciousNodes
-    val numberOfDeafNodes: Int = math.floor(config.numberOfMaliciousNodes * config.fractionOfDeafNodesAmongMalicious).toInt
+    val numberOfHonestNodes: Int = config.numberOfNodes - config.actualNumberOfFaultyNodes
+    val numberOfDeafNodes: Int = math.floor(config.actualNumberOfFaultyNodes * config.fractionOfDeafNodesAmongMalicious).toInt
     val inputSetsGenerator = new InputSetsGenerator(config)
     val inputSetsConfiguration = inputSetsGenerator.generate()
 
@@ -163,7 +163,7 @@ class SimEngineImpl(config: Config) extends SimEngine {
       result(lastNodeId) = box
     }
 
-    for (i <- 1 to config.numberOfMaliciousNodes) {
+    for (i <- 1 to config.actualNumberOfFaultyNodes) {
       lastNodeId += 1
       val context = new NodeContextImpl(lastNodeId)
       val node = new GangNode(lastNodeId, config, context, inputSetsConfiguration.inputSetFor(i))

@@ -5,7 +5,7 @@ import com.selfdualbrain.trix.protocol_model.{Message, NodeId, Round}
 trait NodeContext {
   def iteration: Int
   def currentRound: Round
-  def isActiveInCurrentRound: Boolean
+  def amIActiveInCurrentRound: Boolean
   def broadcast(msg: Message): Unit
   def send(msg: Message, destination: NodeId): Unit
   def inbox(): Iterable[Message]

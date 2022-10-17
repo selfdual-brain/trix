@@ -6,5 +6,8 @@ package com.selfdualbrain.trix.protocol_model
  *
  * Remark: Encapsulated as a class so we can later easily change the implementation.
  */
-class CollectionOfMarbles(elements: Set[Marble]) {
+class CollectionOfMarbles(val elements: Set[Marble]) {
+}
+object CollectionOfMarbles {
+  val empty = new CollectionOfMarbles(Set.empty[Marble])
 }
