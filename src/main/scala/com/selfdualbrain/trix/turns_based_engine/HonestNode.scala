@@ -10,6 +10,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
   private val equivocators: mutable.Set[NodeId] = new mutable.HashSet[NodeId]
   private var certifiedIteration: Int = -1
   private var currentConsensusApproximation: CollectionOfMarbles = inputSet
+  private var lastProposedSet: Option[CollectionOfMarbles] = None
   private var preroundMessagesSnapshot: Option[Iterable[Message]] = None
   private var marblesWithEnoughSupport: Set[Marble] = Set.empty
   private var latestValidStatusMessages: Set[Message.Status] = Set.empty
@@ -28,8 +29,8 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
           for (statusMsg <- latestValidStatusMessages)
             bufferOfMarbles.addAll(statusMsg.acceptedSet.elements)
           val magmaSet = new CollectionOfMarbles(bufferOfMarbles.toSet)
-          val svp = SafeValueProof.Bootstrap(context.iteration, latestValidStatusMessages, magmaSet, currentConsensusApproximation)
-          context.broadcastIncludingMyself(Message.Proposal(id, context.iteration, currentConsensusApproximation, svp, fakeHash = context.rng.nextLong()))
+          val svp = SafeValueProof.Bootstrap(context.iteration, latestValidStatusMessages, magmaSet)
+          context.broadcastIncludingMyself(Message.Proposal(id, context.iteration, svp, fakeHash = context.rng.nextLong()))
         } else {
           ???
           //todo
@@ -64,8 +65,8 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         return false
 
       case Round.Status =>
-        val allStatusMessages = context.inbox()
-        latestValidStatusMessages = allStatusMessages.filter(msg => msg.asInstanceOf[Message.Status].acceptedSet.elements.subsetOf(marblesWithEnoughSupport))
+        val allStatusMessages: Iterable[Message.Status] = context.inbox().asInstanceOf[Iterable[Message.Status]]
+        latestValidStatusMessages = allStatusMessages.filter(msg => msg.acceptedSet.elements.subsetOf(marblesWithEnoughSupport)).toSet
         return false
 
       case Round.Proposal =>
@@ -82,11 +83,16 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
             }
           }
 
+          //todo: validation of svp
+          bestMsgSoFar.safeValueProof match {
+            case SafeValueProof.Bootstrap(iteration, statusMessages, magma) =>
+              lastProposedSet = Some(magma)
 
-
-
-
-
+            case SafeValueProof.Proper(iteration, statusMessages, magicMsg) =>
+              lastProposedSet = Some(magicMsg.acceptedSet)
+          }
+        } else {
+          lastProposedSet = None
         }
 
         return false

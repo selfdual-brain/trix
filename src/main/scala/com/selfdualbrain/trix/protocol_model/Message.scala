@@ -21,7 +21,6 @@ object Message {
   case class Proposal(
                        creator: NodeId,
                        iteration: Int,
-                       acceptedSet: CollectionOfMarbles,
                        safeValueProof: SafeValueProof,
                        fakeHash: Long //used for elimination of too many leaders; in real implementation
                      ) extends Message
