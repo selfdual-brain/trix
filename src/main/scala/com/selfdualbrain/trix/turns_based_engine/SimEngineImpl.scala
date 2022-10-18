@@ -66,6 +66,8 @@ class SimEngineImpl(config: Config) extends SimEngine {
       currentRoundProcess.get.registerMsgBroadcast(msg)
     }
 
+    override def broadcastIncludingMyself(msg: Message): Unit = ??? //todo
+
     override def send(msg: Message, destination: NodeId): Unit = {
       currentRoundProcess.get.registerMsgSend(msg, destination)
     }

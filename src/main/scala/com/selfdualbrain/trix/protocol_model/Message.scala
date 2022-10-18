@@ -22,7 +22,8 @@ object Message {
                        creator: NodeId,
                        iteration: Int,
                        acceptedSet: CollectionOfMarbles,
-                       safeValueProof: SafeValueProof
+                       safeValueProof: SafeValueProof,
+                       fakeHash: Long //used for elimination of too many leaders; in real implementation
                      ) extends Message
 
   case class Commit(
