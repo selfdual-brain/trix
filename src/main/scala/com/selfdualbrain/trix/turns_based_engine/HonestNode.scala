@@ -2,7 +2,7 @@ package com.selfdualbrain.trix.turns_based_engine
 
 import com.selfdualbrain.continuum.data_structures.FastIntMap
 import com.selfdualbrain.trix.data_structures.IndexedBatteryOfIntCounters
-import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, Marble, Message, NodeId, Round, SafeValueProof}
+import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, CommitCertificate, Marble, Message, NodeId, Round, SafeValueProof}
 
 import scala.collection.mutable
 
@@ -10,7 +10,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
   private val equivocators: mutable.Set[NodeId] = new mutable.HashSet[NodeId]
   private var certifiedIteration: Int = -1
   private var currentConsensusApproximation: CollectionOfMarbles = inputSet
-  private var lastProposedSet: Option[CollectionOfMarbles] = None
+  private var commitCandidate: Option[CollectionOfMarbles] = None
   private var preroundMessagesSnapshot: Option[Iterable[Message]] = None
   private var marblesWithEnoughSupport: Set[Marble] = Set.empty
   private var latestValidStatusMessages: Set[Message.Status] = Set.empty
@@ -36,7 +36,9 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
           //todo
         }
 
-      case Round.Commit => ???
+      case Round.Commit =>
+        if (commitCandidate.isDefined)
+          context.broadcastIncludingMyself(Message.Commit(id, context.iteration, commitCandidate.get))
 
       case Round.Notify => ???
     }
@@ -47,17 +49,10 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
 
       case Round.Preround =>
         preroundMessagesSnapshot = Some(context.inbox())
-        val sendersIndex = new mutable.HashSet[Int](simConfig.numberOfNodes, 0.75)
         val counters = new IndexedBatteryOfIntCounters(allowNegativeValues = false)
-        for (msg <- context.inbox()) {
-          val preroundMsg = msg.asInstanceOf[Message.Preround]
-          val sender = preroundMsg.creator
-          if (sendersIndex.contains(sender)) { //todo: possibly we should just ignore messages from equivocators whatsoever ?
-            equivocators += sender
-          } else {
-            sendersIndex += sender
-            for (marble <- preroundMsg.inputSet.elements)
-              counters.increment(marble, 1)
+        for (msg <- filterEquivocations(context.inbox()).asInstanceOf[Iterable[Message.Preround]]) {
+          for (marble <- msg.inputSet.elements) {
+            counters.increment(marble, 1)
           }
         }
         marblesWithEnoughSupport = counters.indexesWithBalanceAtLeast(simConfig.faultyNodesTolerance + 1).toSet
@@ -65,12 +60,12 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         return false
 
       case Round.Status =>
-        val allStatusMessages: Iterable[Message.Status] = context.inbox().asInstanceOf[Iterable[Message.Status]]
+        val allStatusMessages: Iterable[Message.Status] = filterEquivocations(context.inbox()).asInstanceOf[Iterable[Message.Status]]
         latestValidStatusMessages = allStatusMessages.filter(msg => msg.acceptedSet.elements.subsetOf(marblesWithEnoughSupport)).toSet
         return false
 
       case Round.Proposal =>
-        val allProposalMessages: Iterable[Message.Proposal] = context.inbox().asInstanceOf[Iterable[Message.Proposal]]
+        val allProposalMessages: Iterable[Message.Proposal] = filterEquivocations(context.inbox()).asInstanceOf[Iterable[Message.Proposal]]
 
         if (allProposalMessages.nonEmpty) {
           //enforce there is at most one leader (finding the proposal message with smallest fake hash)
@@ -84,25 +79,52 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
           }
 
           //todo: validation of svp
-          bestMsgSoFar.safeValueProof match {
-            case SafeValueProof.Bootstrap(iteration, statusMessages, magma) =>
-              lastProposedSet = Some(magma)
-
-            case SafeValueProof.Proper(iteration, statusMessages, magicMsg) =>
-              lastProposedSet = Some(magicMsg.acceptedSet)
-          }
+          commitCandidate = Some(bestMsgSoFar.safeValueProof.safeValue)
         } else {
-          lastProposedSet = None
+          commitCandidate = None
         }
 
         return false
 
-      case Round.Commit => ???
+      case Round.Commit =>
+        if (commitCandidate.isDefined) {
+          val allCommitMessages = filterEquivocations(context.inbox()).asInstanceOf[Iterable[Message.Commit]]
+          val commitMessagesVotingOnOurCandidate = allCommitMessages.filter(msg => msg.commitCandidate == commitCandidate.get)
+          val howManyOfThem = commitMessagesVotingOnOurCandidate.size
+          if (howManyOfThem >= simConfig.faultyNodesTolerance + 1) {
+            val commitCertificate = CommitCertificate(acceptedSet = commitCandidate.get, commitMessagesVotingOnOurCandidate.toArray)
+            currentConsensusApproximation = commitCandidate.get
+          }
+        }
+        return false
 
-      case Round.Notify => ???
+      case Round.Notify =>
+
 
     }
 
+  }
+
+  /*                              PRIVATE                          */
+
+  /**
+   * We filter out messages which are equivocations (i.e. same type of message in the same round from the same sender).
+   * Moreover we mark such a sender as malicious (by adding it to the equivocators collection).
+   *
+   * @param Iterable
+   */
+  private def filterEquivocations(messages: Iterable[Message]): Iterable[Message] = {
+    //todo
+//    val sendersIndex = new mutable.HashSet[Int](simConfig.numberOfNodes, 0.75)
+//    if (sendersIndex.contains(sender)) {
+//      equivocators += sender
+//    } else {
+//      sendersIndex += sender
+//      for (marble <- preroundMsg.inputSet.elements)
+//        counters.increment(marble, 1)
+//    }
+
+    ???
   }
 
 }

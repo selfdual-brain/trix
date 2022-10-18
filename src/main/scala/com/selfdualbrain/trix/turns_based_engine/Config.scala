@@ -24,9 +24,11 @@ trait Config {
 
   //this is the number "f" used in the protocol spec
   //i.e. the maximal number of faulty nodes Hare protocol can tolerate
-  val faultyNodesTolerance: Int =
-    if (numberOfNodes % 2 == 0)
-      numberOfNodes / 2 - 1
+  val faultyNodesTolerance: Int = {
+    val n = averageNumberOfActiveNodes.toInt
+    if (n % 2 == 0)
+      n / 2 - 1
     else
-      numberOfNodes / 2
+      n / 2
+  }
 }
