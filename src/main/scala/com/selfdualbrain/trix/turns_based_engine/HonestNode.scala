@@ -1,7 +1,7 @@
 package com.selfdualbrain.trix.turns_based_engine
 
 import com.selfdualbrain.continuum.data_structures.FastIntMap
-import com.selfdualbrain.trix.data_structures.IndexedBatteryOfIntCounters
+import com.selfdualbrain.trix.data_structures.{Counter, IndexedBatteryOfIntCounters}
 import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, CommitCertificate, Marble, Message, NodeId, Round, SafeValueProof}
 
 import scala.collection.mutable
@@ -14,6 +14,8 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
   private var preroundMessagesSnapshot: Option[Iterable[Message]] = None
   private var marblesWithEnoughSupport: Set[Marble] = Set.empty
   private var latestValidStatusMessages: Set[Message.Status] = Set.empty
+  private var lastLocallyFormedCommitCertificate: Option[CommitCertificate] = None
+  private val notifyMessagesCounter = new mutable.HashMap[CollectionOfMarbles, mutable.HashSet[NodeId]]
 
   override def executeSendingPhase(): Unit = {
     context.currentRound match {
@@ -21,7 +23,9 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         context.broadcastIncludingMyself(Message.Preround(id, inputSet))
 
       case Round.Status =>
-        context.broadcastIncludingMyself(Message.Status(id, context.iteration, certifiedIteration, acceptedSet = currentConsensusApproximation))
+        context.broadcastIncludingMyself(
+          Message.Status(id, context.iteration, certifiedIteration, acceptedSet = currentConsensusApproximation)
+        )
 
       case Round.Proposal =>
         if (certifiedIteration == -1) {
@@ -40,7 +44,9 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         if (commitCandidate.isDefined)
           context.broadcastIncludingMyself(Message.Commit(id, context.iteration, commitCandidate.get))
 
-      case Round.Notify => ???
+      case Round.Notify =>
+        if (lastLocallyFormedCommitCertificate.isDefined)
+          context.broadcastIncludingMyself(Message.Notify(id, context.iteration, lastLocallyFormedCommitCertificate.get))
     }
   }
 
@@ -92,14 +98,55 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
           val commitMessagesVotingOnOurCandidate = allCommitMessages.filter(msg => msg.commitCandidate == commitCandidate.get)
           val howManyOfThem = commitMessagesVotingOnOurCandidate.size
           if (howManyOfThem >= simConfig.faultyNodesTolerance + 1) {
-            val commitCertificate = CommitCertificate(acceptedSet = commitCandidate.get, commitMessagesVotingOnOurCandidate.toArray)
+            lastLocallyFormedCommitCertificate = Some(CommitCertificate(acceptedSet = commitCandidate.get, context.iteration, commitMessagesVotingOnOurCandidate.toArray))
             currentConsensusApproximation = commitCandidate.get
+          } else {
+            lastLocallyFormedCommitCertificate = None
           }
+        } else {
+          lastLocallyFormedCommitCertificate = None
         }
+
         return false
 
       case Round.Notify =>
+        val allNotifyMessages = filterEquivocations(context.inbox()).asInstanceOf[Iterable[Message.Notify]]
+        val notifyMessagesWithGreaterCertifiedIteration = allNotifyMessages.filter(msg => msg.commitCertificate.iteration >= certifiedIteration)
 
+        //checking if the "wild case" can ever happen
+        //the math paper is not clear on what to do with this wild case
+        if (notifyMessagesWithGreaterCertifiedIteration.size > 1) {
+          val distinctVotes = notifyMessagesWithGreaterCertifiedIteration.map(msg => msg.commitCertificate.acceptedSet).toSet
+          if (distinctVotes.size > 1) {
+            throw new RuntimeException(s"we need to talk to Julian, distinct votes: $distinctVotes")
+          }
+        }
+
+        //we update current consensus approximation once we get a notify message with a better certificate than last we knew about
+        if (notifyMessagesWithGreaterCertifiedIteration.nonEmpty) {
+          val goodNotifyMsg = notifyMessagesWithGreaterCertifiedIteration.head
+          currentConsensusApproximation = goodNotifyMsg.commitCertificate.acceptedSet
+        }
+
+        //update the counter of notify messages
+        var happyToTerminate = false
+        for (msg <- allNotifyMessages) {
+          val setInQuestion = msg.commitCertificate.acceptedSet
+          notifyMessagesCounter.get(setInQuestion) match {
+            case None =>
+              val coll = new mutable.HashSet[NodeId]
+              coll += msg.creator
+              if (coll.size >= simConfig.faultyNodesTolerance + 1)
+                happyToTerminate = true
+
+            case Some(coll) =>
+              coll += msg.creator
+              if (coll.size >= simConfig.faultyNodesTolerance + 1)
+                happyToTerminate = true
+          }
+        }
+
+        return happyToTerminate
 
     }
 

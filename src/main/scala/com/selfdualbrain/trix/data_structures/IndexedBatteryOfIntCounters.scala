@@ -55,6 +55,3 @@ class IndexedBatteryOfIntCounters(allowNegativeValues: Boolean) {
 
 }
 
-class Counter {
-  var value: Int = 0
-}

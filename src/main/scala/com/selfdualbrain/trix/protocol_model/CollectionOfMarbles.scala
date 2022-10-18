@@ -18,6 +18,8 @@ class CollectionOfMarbles(val elements: Set[Marble]) {
     }
   }
 
+  override def hashCode(): Marble = elements.hashCode()
+
 }
 object CollectionOfMarbles {
   val empty = new CollectionOfMarbles(Set.empty[Marble])
