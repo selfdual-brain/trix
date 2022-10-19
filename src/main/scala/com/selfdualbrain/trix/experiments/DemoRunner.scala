@@ -10,7 +10,7 @@ object DemoRunner {
     val output = TextOutput.overConsole(4, ' ')
     val engine = new SimEngineImpl(cfg, output)
 
-    while (engine.numberOfNodesWhichTerminated() < cfg.numberOfNodes && engine.currentIteration < 10)
+    while (engine.numberOfNodesWhichTerminated() < cfg.numberOfNodes && engine.currentIteration < 20)
       engine.playNextRound()
   }
 

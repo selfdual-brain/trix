@@ -31,25 +31,31 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         )
 
       case Round.Proposal =>
-        val svp: SafeValueProof = if (certifiedIteration == -1) {
+        val svp: Option[SafeValueProof] = if (certifiedIteration == -1) {
           val bufferOfMarbles = new mutable.HashSet[Marble]
           for (statusMsg <- latestValidStatusMessages)
             bufferOfMarbles.addAll(statusMsg.acceptedSet.elements)
           val magmaSet = new CollectionOfMarbles(bufferOfMarbles.toSet)
-          SafeValueProof.Bootstrap(context.iteration, latestValidStatusMessages, magmaSet)
+          Some(SafeValueProof.Bootstrap(context.iteration, latestValidStatusMessages, magmaSet))
         } else {
-          val maxCertifiedIteration: Int = latestValidStatusMessages.map(msg => msg.certifiedIteration).max
-          if (maxCertifiedIteration < 0)
-            throw new RuntimeException("Could not form SVP: maxCertifiedIteration < 0")
-          val messagesWithMaxCertifiedIteration = latestValidStatusMessages.filter(msg => msg.certifiedIteration == maxCertifiedIteration)
-          val candidateSets = messagesWithMaxCertifiedIteration.map(msg => msg.acceptedSet)
-          if (candidateSets.size > 1)
-            throw new RuntimeException(s"Could not form SVP: candidateSets.size = ${candidateSets.size}")
-          SafeValueProof.Proper(context.iteration, latestValidStatusMessages, messagesWithMaxCertifiedIteration.head)
+          if (latestValidStatusMessages.isEmpty)
+            None
+          else {
+            val maxCertifiedIteration: Int = latestValidStatusMessages.map(msg => msg.certifiedIteration).max
+            if (maxCertifiedIteration < 0)
+              throw new RuntimeException("Could not form SVP: maxCertifiedIteration < 0")
+            val messagesWithMaxCertifiedIteration = latestValidStatusMessages.filter(msg => msg.certifiedIteration == maxCertifiedIteration)
+            val candidateSets = messagesWithMaxCertifiedIteration.map(msg => msg.acceptedSet)
+            if (candidateSets.size > 1)
+              throw new RuntimeException(s"Could not form SVP: candidateSets.size = ${candidateSets.size}")
+            Some(SafeValueProof.Proper(context.iteration, latestValidStatusMessages, messagesWithMaxCertifiedIteration.head))
+          }
         }
 
-        output("proposal-by-honest-leader", svp.safeValue.toString)
-        context.broadcastIncludingMyself(Message.Proposal(id, context.iteration, svp, fakeHash = context.rng.nextLong()))
+        if (svp.isDefined) {
+          output("proposal-by-honest-leader", svp.get.safeValue.toString)
+          context.broadcastIncludingMyself(Message.Proposal(id, context.iteration, svp.get, fakeHash = context.rng.nextLong()))
+        }
 
       case Round.Commit =>
         if (commitCandidate.isDefined)
@@ -73,8 +79,9 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
           }
         }
         marblesWithEnoughSupport = counters.indexesWithBalanceAtLeast(simConfig.faultyNodesTolerance + 1).toSet
+        output("marbles-with-enough-support", marblesWithEnoughSupport.mkString(","))
         currentConsensusApproximation = new CollectionOfMarbles(currentConsensusApproximation.elements.intersect(marblesWithEnoughSupport))
-        output("consensus-approx-update", currentConsensusApproximation.toString)
+        output("consensus-approx-update", currentConsensusApproximation.mkString(","))
         return false
 
       case Round.Status =>
@@ -114,7 +121,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
           if (howManyOfThem >= simConfig.faultyNodesTolerance + 1) {
             lastLocallyFormedCommitCertificate = Some(CommitCertificate(acceptedSet = commitCandidate.get, context.iteration, commitMessagesVotingOnOurCandidate.toArray))
             currentConsensusApproximation = commitCandidate.get
-            output("consensus-approx-update", currentConsensusApproximation.toString)
+            output("consensus-approx-update", currentConsensusApproximation.mkString(","))
           } else {
             lastLocallyFormedCommitCertificate = None
           }
@@ -142,7 +149,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         if (notifyMessagesWithGreaterCertifiedIteration.nonEmpty) {
           val goodNotifyMsg = notifyMessagesWithGreaterCertifiedIteration.head
           currentConsensusApproximation = goodNotifyMsg.commitCertificate.acceptedSet
-          output("consensus-approx-update", currentConsensusApproximation.toString)
+          output("consensus-approx-update", currentConsensusApproximation.mkString(","))
           certifiedIteration = goodNotifyMsg.commitCertificate.iteration
         }
 
@@ -164,7 +171,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
           }
         }
 
-        output("notify-counters", notifyMessagesCounter.mkString(","))
+        output("notify-counters", notifyMessagesCounterPrettyPrint())
         return happyToTerminate
     }
 
@@ -190,6 +197,21 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
     }
     val honestMessages: Set[Message] = messagesWithDuplicatesRemoved.filter(msg => !equivocators.contains(msg.sender))
     return honestMessages
+  }
+
+  private def notifyMessagesCounterPrettyPrint(): String = {
+    if (notifyMessagesCounter.isEmpty)
+      return "(empty)"
+    else {
+      val buf = new mutable.StringBuilder(3000)
+      for ((k,v) <- notifyMessagesCounter) {
+        buf.append(k)
+        buf.append(" -> ")
+        buf.append(v)
+        buf.append(",")
+      }
+      return buf.toString()
+    }
   }
 
 }

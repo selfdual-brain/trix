@@ -82,7 +82,12 @@ class SimEngineImpl(config: Config, out: AbstractTextOutput) extends SimEngine {
       if (config.isNetworkReliable)
         return messagesCollection
       else
-        return messagesCollection.filter(msg => msgDeliveryRng.nextDouble() > config.probabilityOfAMessageGettingLost)
+        return messagesCollection.filter(msg => {
+          val shouldBeLost: Boolean = msgDeliveryRng.nextDouble() < config.probabilityOfAMessageGettingLost
+          if (shouldBeLost)
+            out.print(s"$nodeId:incoming-message-lost:$msg")
+          !shouldBeLost
+        })
     }
 
     override def signalProtocolTermination(): Unit = {
@@ -142,7 +147,7 @@ class SimEngineImpl(config: Config, out: AbstractTextOutput) extends SimEngine {
 
     def run(): Unit = {
       val electedCollectionOfNodes: Iterable[NodeId] = (0 until config.numberOfNodes).filter(nodeId => roleDistributionOracle.isNodeActive(nodeId))
-      out.print(s"########## iteration=$iteration round=$round elected-nodes=$electedCollectionOfNodes")
+      out.print(s"########## iteration=$iteration round=$round terminated-nodes=$terminatedNodesCounter elected-nodes=$electedCollectionOfNodes")
 
       //run sending phase of this round
       for (i <- 0 until config.numberOfNodes if roleDistributionOracle.isNodeActive(i)) {
@@ -185,6 +190,10 @@ class SimEngineImpl(config: Config, out: AbstractTextOutput) extends SimEngine {
     println(s"  faulty (total): ${config.actualNumberOfFaultyNodes}")
     println(s"      malicious: $numberOfMaliciousNodes")
     println(s"      deaf: $numberOfDeafNodes")
+    println(s"average election size:")
+    println(s"  normal rounds: ${config.averageNumberOfActiveNodes}")
+    println(s"  leader rounds: ${config.averageNumberOfLeaders}")
+    println(s"f+1=${config.faultyNodesTolerance + 1}")
 
     for (i <- 1 to numberOfHonestNodes) {
       lastNodeId += 1

@@ -6,7 +6,7 @@ package com.selfdualbrain.trix.protocol_model
  *
  * Remark: Encapsulated as a class so we can later easily change the implementation.
  */
-class CollectionOfMarbles(val elements: Set[Marble]) {
+class CollectionOfMarbles(val elements: Set[Marble]) extends Iterable[Marble] {
 
   override def equals(obj: Any): Boolean = {
     if (obj == null)
@@ -21,6 +21,8 @@ class CollectionOfMarbles(val elements: Set[Marble]) {
   override def hashCode(): Marble = elements.hashCode()
 
   override def toString: String = elements.toString
+
+  override def iterator: Iterator[Marble] = elements.iterator
 }
 object CollectionOfMarbles {
   val empty = new CollectionOfMarbles(Set.empty[Marble])
