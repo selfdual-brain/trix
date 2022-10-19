@@ -13,7 +13,7 @@ class SimEngineImpl(config: Config, out: AbstractTextOutput) extends SimEngine {
   private val eligibilityMasterRng = new MersenneTwister(config.eligibilityRngMasterSeed)
   private val msgDeliveryRng = new MersenneTwister(config.msgDeliveryRngSeed)
   private val nodeDecisionsRng = new MersenneTwister(config.nodeDecisionsRngSeed)
-  private val currentRoundProcess: Option[SingleRoundProcess] = None
+  private var currentRoundProcess: Option[SingleRoundProcess] = None
   private var terminatedNodesCounter: Int = 0
 
   /*                                                 PUBLIC                                             */
@@ -36,12 +36,13 @@ class SimEngineImpl(config: Config, out: AbstractTextOutput) extends SimEngine {
         currentIteration += 1
     }
 
-    val roundProcess = new SingleRoundProcess(
+    val process = new SingleRoundProcess(
       iteration = currentIteration,
       round = currentRound.get,
       salt = eligibilityMasterRng.nextInt()
     )
-    roundProcess.run()
+    currentRoundProcess = Some(process)
+    process.run()
   }
 
   override def nodesWhichTerminated(): Iterator[NodeId] =
@@ -104,9 +105,14 @@ class SimEngineImpl(config: Config, out: AbstractTextOutput) extends SimEngine {
         config.averageNumberOfLeaders
       else
         config.averageNumberOfActiveNodes
-    val roleDistributionOracle: RoleDistributionOracle = new CachingRoleDistributionOracle(config.numberOfNodes, electedSubsetAverageSize, rngSeed = perRoundEligibilitySeed)
+
+    val roleDistributionOracle: RoleDistributionOracle =
+      new CachingRoleDistributionOracle(config.numberOfNodes, electedSubsetAverageSize, rngSeed = perRoundEligibilitySeed)
+
     private val broadcastBuffer = new ArrayBuffer[Message]((electedSubsetAverageSize * 2).toInt)
     private val inboxes = new Array[Option[ArrayBuffer[Message]]](config.numberOfNodes)
+    for (i <- inboxes.indices)
+      inboxes(i) = None
 
     def registerMsgBroadcast(msg: Message): Unit = {
       broadcastBuffer += msg
@@ -135,7 +141,8 @@ class SimEngineImpl(config: Config, out: AbstractTextOutput) extends SimEngine {
     }
 
     def run(): Unit = {
-      out.print(s"# iteration=$iteration round=$round")
+      val electedCollectionOfNodes: Iterable[NodeId] = (0 until config.numberOfNodes).filter(nodeId => roleDistributionOracle.isNodeActive(nodeId))
+      out.print(s"########## iteration=$iteration round=$round elected-nodes=$electedCollectionOfNodes")
 
       //run sending phase of this round
       for (i <- 0 until config.numberOfNodes if roleDistributionOracle.isNodeActive(i)) {
