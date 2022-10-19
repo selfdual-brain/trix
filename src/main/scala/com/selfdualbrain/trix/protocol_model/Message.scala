@@ -2,6 +2,7 @@ package com.selfdualbrain.trix.protocol_model
 
 sealed abstract class Message {
   def creator: NodeId
+  def iteration: Int
 }
 
 object Message {
@@ -9,7 +10,11 @@ object Message {
   case class Preround(
                        creator: NodeId,
                        inputSet: CollectionOfMarbles
-                     ) extends Message
+                     ) extends Message {
+
+    override def iteration: Int = 0
+
+  }
 
   case class Status(
                      creator: NodeId,

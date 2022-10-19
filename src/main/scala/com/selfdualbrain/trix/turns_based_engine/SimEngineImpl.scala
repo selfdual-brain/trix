@@ -11,6 +11,7 @@ class SimEngineImpl(config: Config) extends SimEngine {
   private var currentIteration: Int = 0
   private val eligibilityMasterRng = new MersenneTwister(config.eligibilityRngMasterSeed)
   private val msgDeliveryRng = new MersenneTwister(config.msgDeliveryRngSeed)
+  private val nodeDecisionsRng = new MersenneTwister(config.nodeDecisionsRngSeed)
   private val currentRoundProcess: Option[SingleRoundProcess] = None
   private var terminatedNodesCounter: Int = 0
 
@@ -88,6 +89,8 @@ class SimEngineImpl(config: Config) extends SimEngine {
     }
 
     def reachedTerminationOfProtocol: Boolean = terminatedFlag
+
+    override def rng: MersenneTwister = nodeDecisionsRng
   }
 
   /*                                                 SINGLE ROUND PROCESSING                                          */
@@ -139,8 +142,11 @@ class SimEngineImpl(config: Config) extends SimEngine {
       //run receiving phase of this round
       for (i <- 0 until config.numberOfNodes) {
         val box = nodeBoxes(i)
-        if (! box.context.reachedTerminationOfProtocol)
-          nodeBoxes(i).node.executeCalculationPhase()
+        if (! box.context.reachedTerminationOfProtocol) {
+          val termination = nodeBoxes(i).node.executeCalculationPhase()
+          if (termination)
+            box.context.signalProtocolTermination()
+        }
       }
     }
   }

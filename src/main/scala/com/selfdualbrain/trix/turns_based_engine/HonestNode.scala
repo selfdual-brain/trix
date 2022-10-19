@@ -1,8 +1,7 @@
 package com.selfdualbrain.trix.turns_based_engine
 
-import com.selfdualbrain.continuum.data_structures.FastIntMap
-import com.selfdualbrain.trix.data_structures.{Counter, IndexedBatteryOfIntCounters}
-import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, CommitCertificate, Marble, Message, NodeId, Round, SafeValueProof}
+import com.selfdualbrain.trix.data_structures.IndexedBatteryOfIntCounters
+import com.selfdualbrain.trix.protocol_model._
 
 import scala.collection.mutable
 
@@ -28,17 +27,24 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         )
 
       case Round.Proposal =>
-        if (certifiedIteration == -1) {
+        val svp: SafeValueProof = if (certifiedIteration == -1) {
           val bufferOfMarbles = new mutable.HashSet[Marble]
           for (statusMsg <- latestValidStatusMessages)
             bufferOfMarbles.addAll(statusMsg.acceptedSet.elements)
           val magmaSet = new CollectionOfMarbles(bufferOfMarbles.toSet)
-          val svp = SafeValueProof.Bootstrap(context.iteration, latestValidStatusMessages, magmaSet)
-          context.broadcastIncludingMyself(Message.Proposal(id, context.iteration, svp, fakeHash = context.rng.nextLong()))
+          SafeValueProof.Bootstrap(context.iteration, latestValidStatusMessages, magmaSet)
         } else {
-          ???
-          //todo
+          val maxCertifiedIteration: Int = latestValidStatusMessages.map(msg => msg.certifiedIteration).max
+          if (maxCertifiedIteration < 0)
+            throw new RuntimeException("Could not form SVP: maxCertifiedIteration < 0")
+          val messagesWithMaxCertifiedIteration = latestValidStatusMessages.filter(msg => msg.certifiedIteration == maxCertifiedIteration)
+          val candidateSets = messagesWithMaxCertifiedIteration.map(msg => msg.acceptedSet)
+          if (candidateSets.size > 1)
+            throw new RuntimeException(s"Could not form SVP: candidateSets.size = ${candidateSets.size}")
+          SafeValueProof.Proper(context.iteration, latestValidStatusMessages, messagesWithMaxCertifiedIteration.head)
         }
+
+        context.broadcastIncludingMyself(Message.Proposal(id, context.iteration, svp, fakeHash = context.rng.nextLong()))
 
       case Round.Commit =>
         if (commitCandidate.isDefined)
@@ -113,12 +119,13 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         val allNotifyMessages = filterEquivocations(context.inbox()).asInstanceOf[Iterable[Message.Notify]]
         val notifyMessagesWithGreaterCertifiedIteration = allNotifyMessages.filter(msg => msg.commitCertificate.iteration >= certifiedIteration)
 
-        //checking if the "wild case" can ever happen
+        //checking if the "wild case" of distinct votes can ever happen
         //the math paper is not clear on what to do with this wild case
+        //if such situations really happen, we need to invent proper handling of them
         if (notifyMessagesWithGreaterCertifiedIteration.size > 1) {
           val distinctVotes = notifyMessagesWithGreaterCertifiedIteration.map(msg => msg.commitCertificate.acceptedSet).toSet
           if (distinctVotes.size > 1) {
-            throw new RuntimeException(s"we need to talk to Julian, distinct votes: $distinctVotes")
+            throw new RuntimeException(s"it looks like 'distinct votes problem' really can happen: $distinctVotes")
           }
         }
 
@@ -126,6 +133,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         if (notifyMessagesWithGreaterCertifiedIteration.nonEmpty) {
           val goodNotifyMsg = notifyMessagesWithGreaterCertifiedIteration.head
           currentConsensusApproximation = goodNotifyMsg.commitCertificate.acceptedSet
+          certifiedIteration = goodNotifyMsg.commitCertificate.iteration
         }
 
         //update the counter of notify messages

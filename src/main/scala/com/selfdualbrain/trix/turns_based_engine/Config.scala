@@ -7,6 +7,7 @@ trait Config {
   def eligibilityRngMasterSeed: Long
   def inputSetsGeneratorSeed: Long
   def msgDeliveryRngSeed: Long
+  def nodeDecisionsRngSeed: Long
   def maxFractionOfMaliciousNodes: Double
   def fractionOfDeafNodesAmongMalicious: Double
   def inputSetSizeRange: (Int, Int)
