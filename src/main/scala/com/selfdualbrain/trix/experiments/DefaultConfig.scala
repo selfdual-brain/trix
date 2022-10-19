@@ -4,8 +4,8 @@ import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, NodeId}
 import com.selfdualbrain.trix.turns_based_engine.Config
 
 object DefaultConfig extends Config {
-  override val maxFractionOfMaliciousNodes: Double = 0.3
-  override val fractionOfDeafNodesAmongMalicious: Double = 1.0
+  override val maxFractionOfFaultyNodes: Double = 0.3
+  override val fractionOfDeafNodesAmongFaulty: Double = 1.0
   override val inputSetSizeRange: (Int, Int) = (3, 10)
   override val marblesRangeForHonestNodes: Int = 30
   override val isNetworkReliable: Boolean = false

@@ -1,6 +1,6 @@
 package com.selfdualbrain.trix.turns_based_engine
 
-import com.selfdualbrain.continuum.textout.{AbstractTextOutput, TextOutput}
+import com.selfdualbrain.continuum.textout.AbstractTextOutput
 import com.selfdualbrain.trix.protocol_model.{Message, NodeId, Round}
 import org.apache.commons.math3.random.MersenneTwister
 
@@ -164,11 +164,20 @@ class SimEngineImpl(config: Config, out: AbstractTextOutput) extends SimEngine {
     val result = new Array[NodeBox](config.numberOfNodes)
 
     val numberOfHonestNodes: Int = config.numberOfNodes - config.actualNumberOfFaultyNodes
-    val numberOfDeafNodes: Int = math.floor(config.actualNumberOfFaultyNodes * config.fractionOfDeafNodesAmongMalicious).toInt
+    val numberOfDeafNodes: Int = math.floor(config.actualNumberOfFaultyNodes * config.fractionOfDeafNodesAmongFaulty).toInt
+    val numberOfMaliciousNodes: Int = config.actualNumberOfFaultyNodes - numberOfDeafNodes
+
     val inputSetsGenerator = new InputSetsGenerator(config)
     val inputSetsConfiguration = inputSetsGenerator.generate()
 
     var lastNodeId: Int = -1
+
+    println(s"nodes:")
+    println(s"  total: ${config.numberOfNodes}")
+    println(s"  honest: $numberOfHonestNodes")
+    println(s"  faulty (total): ${config.actualNumberOfFaultyNodes}")
+    println(s"      malicious: $numberOfMaliciousNodes")
+    println(s"      deaf: $numberOfDeafNodes")
 
     for (i <- 1 to numberOfHonestNodes) {
       lastNodeId += 1
@@ -178,7 +187,7 @@ class SimEngineImpl(config: Config, out: AbstractTextOutput) extends SimEngine {
       result(lastNodeId) = box
     }
 
-    for (i <- 1 to config.actualNumberOfFaultyNodes) {
+    for (i <- 1 to numberOfMaliciousNodes) {
       lastNodeId += 1
       val context = new NodeContextImpl(lastNodeId)
       val node = new GangNode(lastNodeId, config, context, inputSetsConfiguration.inputSetFor(i), out)

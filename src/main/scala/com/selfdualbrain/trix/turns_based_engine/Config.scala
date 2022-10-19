@@ -8,8 +8,8 @@ trait Config {
   def inputSetsGeneratorSeed: Long
   def msgDeliveryRngSeed: Long
   def nodeDecisionsRngSeed: Long
-  def maxFractionOfMaliciousNodes: Double
-  def fractionOfDeafNodesAmongMalicious: Double
+  def maxFractionOfFaultyNodes: Double
+  def fractionOfDeafNodesAmongFaulty: Double
   def inputSetSizeRange: (Int, Int)
   def marblesRangeForHonestNodes: Int
   def initialSizeOfInboxBuffer: Int
@@ -20,11 +20,11 @@ trait Config {
   def manuallyProvidedInputSets: Option[Map[NodeId, CollectionOfMarbles]]
 
   //this is the actual number of faulty nodes in this simulation
-  val actualNumberOfFaultyNodes: Int = math.floor(numberOfNodes * maxFractionOfMaliciousNodes).toInt
+  lazy val actualNumberOfFaultyNodes: Int = math.floor(numberOfNodes * maxFractionOfFaultyNodes).toInt
 
   //this is the number "f" used in the protocol spec
   //i.e. the maximal number of faulty nodes Hare protocol can tolerate
-  val faultyNodesTolerance: Int = {
+  lazy val faultyNodesTolerance: Int = {
     val n = averageNumberOfActiveNodes.toInt
     if (n % 2 == 0)
       n / 2 - 1
