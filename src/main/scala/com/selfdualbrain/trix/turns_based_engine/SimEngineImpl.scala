@@ -1,14 +1,15 @@
 package com.selfdualbrain.trix.turns_based_engine
 
+import com.selfdualbrain.continuum.textout.{AbstractTextOutput, TextOutput}
 import com.selfdualbrain.trix.protocol_model.{Message, NodeId, Round}
 import org.apache.commons.math3.random.MersenneTwister
 
 import scala.collection.mutable.ArrayBuffer
 
-class SimEngineImpl(config: Config) extends SimEngine {
+class SimEngineImpl(config: Config, out: AbstractTextOutput) extends SimEngine {
   private val nodeBoxes: Array[NodeBox] = initializeNodes()
-  private var currentRound: Option[Round] = None
-  private var currentIteration: Int = 0
+  var currentRound: Option[Round] = None
+  var currentIteration: Int = 0
   private val eligibilityMasterRng = new MersenneTwister(config.eligibilityRngMasterSeed)
   private val msgDeliveryRng = new MersenneTwister(config.msgDeliveryRngSeed)
   private val nodeDecisionsRng = new MersenneTwister(config.nodeDecisionsRngSeed)
@@ -109,6 +110,7 @@ class SimEngineImpl(config: Config) extends SimEngine {
 
     def registerMsgBroadcast(msg: Message): Unit = {
       broadcastBuffer += msg
+      out.print(s"${msg.sender}:broadcast:$msg")
     }
 
     def registerMsgSend(msg: Message, destination: NodeId): Unit = {
@@ -120,6 +122,7 @@ class SimEngineImpl(config: Config) extends SimEngine {
       }
 
       inboxes(destination).get += msg
+      out.print(s"${msg.sender}:direct-send-to[$destination]:$msg")
     }
 
     def getAllMessagesDeliveredTo(nodeId: NodeId): Iterable[Message] = {
@@ -132,6 +135,8 @@ class SimEngineImpl(config: Config) extends SimEngine {
     }
 
     def run(): Unit = {
+      out.print(s"# iteration=$iteration round=$round")
+
       //run sending phase of this round
       for (i <- 0 until config.numberOfNodes if roleDistributionOracle.isNodeActive(i)) {
         val box = nodeBoxes(i)
@@ -168,7 +173,7 @@ class SimEngineImpl(config: Config) extends SimEngine {
     for (i <- 1 to numberOfHonestNodes) {
       lastNodeId += 1
       val context = new NodeContextImpl(lastNodeId)
-      val node = new HonestNode(lastNodeId, config, context, inputSetsConfiguration.inputSetFor(i))
+      val node = new HonestNode(lastNodeId, config, context, inputSetsConfiguration.inputSetFor(i), out)
       val box = NodeBox(node, context)
       result(lastNodeId) = box
     }
@@ -176,7 +181,7 @@ class SimEngineImpl(config: Config) extends SimEngine {
     for (i <- 1 to config.actualNumberOfFaultyNodes) {
       lastNodeId += 1
       val context = new NodeContextImpl(lastNodeId)
-      val node = new GangNode(lastNodeId, config, context, inputSetsConfiguration.inputSetFor(i))
+      val node = new GangNode(lastNodeId, config, context, inputSetsConfiguration.inputSetFor(i), out)
       val box = NodeBox(node, context)
       result(lastNodeId) = box
     }
@@ -184,7 +189,7 @@ class SimEngineImpl(config: Config) extends SimEngine {
     for (i <- 1 to numberOfDeafNodes) {
       lastNodeId += 1
       val context = new NodeContextImpl(lastNodeId)
-      val node = new DeafNode(lastNodeId, config, context, inputSetsConfiguration.inputSetFor(i))
+      val node = new DeafNode(lastNodeId, config, context, inputSetsConfiguration.inputSetFor(i), out)
       val box = NodeBox(node, context)
       result(lastNodeId) = box
     }

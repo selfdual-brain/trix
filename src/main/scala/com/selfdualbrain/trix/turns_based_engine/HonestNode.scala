@@ -1,11 +1,14 @@
 package com.selfdualbrain.trix.turns_based_engine
 
+import com.selfdualbrain.continuum.textout.AbstractTextOutput
 import com.selfdualbrain.trix.data_structures.IndexedBatteryOfIntCounters
 import com.selfdualbrain.trix.protocol_model._
 
 import scala.collection.mutable
 
-class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: CollectionOfMarbles) extends Node(id, simConfig, context, inputSet) {
+class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: CollectionOfMarbles, out: AbstractTextOutput)
+  extends Node(id, simConfig, context, inputSet, out) {
+
   private val equivocators: mutable.Set[NodeId] = new mutable.HashSet[NodeId]
   private var certifiedIteration: Int = -1
   private var currentConsensusApproximation: CollectionOfMarbles = inputSet
@@ -17,6 +20,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
   private val notifyMessagesCounter = new mutable.HashMap[CollectionOfMarbles, mutable.HashSet[NodeId]]
 
   override def executeSendingPhase(): Unit = {
+
     context.currentRound match {
       case Round.Preround =>
         context.broadcastIncludingMyself(Message.Preround(id, inputSet))
@@ -44,6 +48,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
           SafeValueProof.Proper(context.iteration, latestValidStatusMessages, messagesWithMaxCertifiedIteration.head)
         }
 
+        output("proposal-by-honest-leader", svp.safeValue.toString)
         context.broadcastIncludingMyself(Message.Proposal(id, context.iteration, svp, fakeHash = context.rng.nextLong()))
 
       case Round.Commit =>
@@ -69,6 +74,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         }
         marblesWithEnoughSupport = counters.indexesWithBalanceAtLeast(simConfig.faultyNodesTolerance + 1).toSet
         currentConsensusApproximation = new CollectionOfMarbles(currentConsensusApproximation.elements.intersect(marblesWithEnoughSupport))
+        output("consensus-approx-update", currentConsensusApproximation.toString)
         return false
 
       case Round.Status =>
@@ -91,8 +97,10 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
           }
 
           //todo: validation of svp
+          output("accepting-winning-proposal", bestMsgSoFar.toString)
           commitCandidate = Some(bestMsgSoFar.safeValueProof.safeValue)
         } else {
+          output("proposal-is-missing", "")
           commitCandidate = None
         }
 
@@ -106,6 +114,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
           if (howManyOfThem >= simConfig.faultyNodesTolerance + 1) {
             lastLocallyFormedCommitCertificate = Some(CommitCertificate(acceptedSet = commitCandidate.get, context.iteration, commitMessagesVotingOnOurCandidate.toArray))
             currentConsensusApproximation = commitCandidate.get
+            output("consensus-approx-update", currentConsensusApproximation.toString)
           } else {
             lastLocallyFormedCommitCertificate = None
           }
@@ -133,6 +142,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         if (notifyMessagesWithGreaterCertifiedIteration.nonEmpty) {
           val goodNotifyMsg = notifyMessagesWithGreaterCertifiedIteration.head
           currentConsensusApproximation = goodNotifyMsg.commitCertificate.acceptedSet
+          output("consensus-approx-update", currentConsensusApproximation.toString)
           certifiedIteration = goodNotifyMsg.commitCertificate.iteration
         }
 
@@ -144,18 +154,18 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
             case None =>
               val coll = new mutable.HashSet[NodeId]
               coll += msg.sender
-              if (coll.size >= simConfig.faultyNodesTolerance + 1)
-                happyToTerminate = true
 
             case Some(coll) =>
               coll += msg.sender
-              if (coll.size >= simConfig.faultyNodesTolerance + 1)
+              if (coll.size >= simConfig.faultyNodesTolerance + 1) {
                 happyToTerminate = true
+                output("terminating", s"consensus=$setInQuestion")
+              }
           }
         }
 
+        output("notify-counters", notifyMessagesCounter.mkString(","))
         return happyToTerminate
-
     }
 
   }

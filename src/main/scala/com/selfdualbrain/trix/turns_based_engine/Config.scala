@@ -17,7 +17,6 @@ trait Config {
   def probabilityOfAMessageGettingLost: Double
   def averageNumberOfActiveNodes: Double //called in go-spacemesh: expected-commity-size (defaults to 800)
   def averageNumberOfLeaders: Double //called in go-spacemesh: expected-leaders (defaults to 5)
-  def maxNumberOfIterations: Int
   def manuallyProvidedInputSets: Option[Map[NodeId, CollectionOfMarbles]]
 
   //this is the actual number of faulty nodes in this simulation
