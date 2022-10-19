@@ -15,8 +15,10 @@ object DefaultConfig extends Config {
   override val averageNumberOfLeaders: Double = 1
   override val maxNumberOfIterations: Int = 500
   override val eligibilityRngMasterSeed: Long = 42
+  override val nodeDecisionsRngSeed: Long = 101
   override val msgDeliveryRngSeed: Long = 299792458
   override val initialSizeOfInboxBuffer: Int = 100
   override val inputSetsGeneratorSeed: Long = 42
   override val manuallyProvidedInputSets: Option[Map[NodeId, CollectionOfMarbles]] = None
+
 }

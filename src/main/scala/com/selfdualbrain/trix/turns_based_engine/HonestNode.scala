@@ -62,7 +62,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
       case Round.Preround =>
         preroundMessagesSnapshot = Some(context.inbox())
         val counters = new IndexedBatteryOfIntCounters(allowNegativeValues = false)
-        for (msg <- filterEquivocations(context.inbox()).asInstanceOf[Iterable[Message.Preround]]) {
+        for (msg <- filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.Preround]]) {
           for (marble <- msg.inputSet.elements) {
             counters.increment(marble, 1)
           }
@@ -72,12 +72,12 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         return false
 
       case Round.Status =>
-        val allStatusMessages: Iterable[Message.Status] = filterEquivocations(context.inbox()).asInstanceOf[Iterable[Message.Status]]
+        val allStatusMessages: Iterable[Message.Status] = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.Status]]
         latestValidStatusMessages = allStatusMessages.filter(msg => msg.acceptedSet.elements.subsetOf(marblesWithEnoughSupport)).toSet
         return false
 
       case Round.Proposal =>
-        val allProposalMessages: Iterable[Message.Proposal] = filterEquivocations(context.inbox()).asInstanceOf[Iterable[Message.Proposal]]
+        val allProposalMessages: Iterable[Message.Proposal] = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.Proposal]]
 
         if (allProposalMessages.nonEmpty) {
           //enforce there is at most one leader (finding the proposal message with smallest fake hash)
@@ -100,7 +100,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
 
       case Round.Commit =>
         if (commitCandidate.isDefined) {
-          val allCommitMessages = filterEquivocations(context.inbox()).asInstanceOf[Iterable[Message.Commit]]
+          val allCommitMessages = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.Commit]]
           val commitMessagesVotingOnOurCandidate = allCommitMessages.filter(msg => msg.commitCandidate == commitCandidate.get)
           val howManyOfThem = commitMessagesVotingOnOurCandidate.size
           if (howManyOfThem >= simConfig.faultyNodesTolerance + 1) {
@@ -116,7 +116,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         return false
 
       case Round.Notify =>
-        val allNotifyMessages = filterEquivocations(context.inbox()).asInstanceOf[Iterable[Message.Notify]]
+        val allNotifyMessages = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.Notify]]
         val notifyMessagesWithGreaterCertifiedIteration = allNotifyMessages.filter(msg => msg.commitCertificate.iteration >= certifiedIteration)
 
         //checking if the "wild case" of distinct votes can ever happen
@@ -143,12 +143,12 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
           notifyMessagesCounter.get(setInQuestion) match {
             case None =>
               val coll = new mutable.HashSet[NodeId]
-              coll += msg.creator
+              coll += msg.sender
               if (coll.size >= simConfig.faultyNodesTolerance + 1)
                 happyToTerminate = true
 
             case Some(coll) =>
-              coll += msg.creator
+              coll += msg.sender
               if (coll.size >= simConfig.faultyNodesTolerance + 1)
                 happyToTerminate = true
           }
@@ -163,23 +163,23 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
   /*                              PRIVATE                          */
 
   /**
-   * We filter out messages which are equivocations (i.e. same type of message in the same round from the same sender).
+   * We filter out messages which are equivocations (i.e. same type of message in the same round from the same sender
+   * but different contents of the message).
    * Moreover we mark such a sender as malicious (by adding it to the equivocators collection).
+   * If a node gets marked as an equivocator, all subsequent messages from this node are filtered out (i.e. ignored).
+   * We also remove duplicated messages.
    *
    * @param Iterable
    */
-  private def filterEquivocations(messages: Iterable[Message]): Iterable[Message] = {
-    //todo
-//    val sendersIndex = new mutable.HashSet[Int](simConfig.numberOfNodes, 0.75)
-//    if (sendersIndex.contains(sender)) {
-//      equivocators += sender
-//    } else {
-//      sendersIndex += sender
-//      for (marble <- preroundMsg.inputSet.elements)
-//        counters.increment(marble, 1)
-//    }
-
-    ???
+  private def filterOutEquivocationsAndDuplicates(messages: Iterable[Message]): Iterable[Message] = {
+    val sendersSeenSoFar = new mutable.HashSet[Int](simConfig.numberOfNodes, 0.75)
+    val messagesWithDuplicatesRemoved: Set[Message] = messages.toSet
+    for (msg <- messagesWithDuplicatesRemoved) {
+      if (sendersSeenSoFar.contains(msg.sender))
+        equivocators += msg.sender
+    }
+    val honestMessages: Set[Message] = messagesWithDuplicatesRemoved.filter(msg => !equivocators.contains(msg.sender))
+    return honestMessages
   }
 
 }

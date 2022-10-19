@@ -1,14 +1,14 @@
 package com.selfdualbrain.trix.protocol_model
 
 sealed abstract class Message {
-  def creator: NodeId
+  def sender: NodeId
   def iteration: Int
 }
 
 object Message {
 
   case class Preround(
-                       creator: NodeId,
+                       sender: NodeId,
                        inputSet: CollectionOfMarbles
                      ) extends Message {
 
@@ -17,27 +17,27 @@ object Message {
   }
 
   case class Status(
-                     creator: NodeId,
+                     sender: NodeId,
                      iteration: Int,
                      certifiedIteration: Int,
                      acceptedSet: CollectionOfMarbles
                    ) extends Message
 
   case class Proposal(
-                       creator: NodeId,
+                       sender: NodeId,
                        iteration: Int,
                        safeValueProof: SafeValueProof,
                        fakeHash: Long //used for elimination of too many leaders; in real implementation
                      ) extends Message
 
   case class Commit(
-                     creator: NodeId,
+                     sender: NodeId,
                      iteration: Int,
                      commitCandidate: CollectionOfMarbles
                    ) extends Message
 
   case class Notify(
-                     creator: NodeId,
+                     sender: NodeId,
                      iteration: Int,
                      commitCertificate: CommitCertificate
                    ) extends Message
