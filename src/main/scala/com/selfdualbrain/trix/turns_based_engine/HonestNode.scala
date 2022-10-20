@@ -161,6 +161,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
             case None =>
               val coll = new mutable.HashSet[NodeId]
               coll += msg.sender
+              notifyMessagesCounter += setInQuestion -> coll
 
             case Some(coll) =>
               coll += msg.sender

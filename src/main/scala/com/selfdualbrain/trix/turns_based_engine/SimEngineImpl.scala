@@ -182,8 +182,9 @@ class SimEngineImpl(config: Config, out: AbstractTextOutput) extends SimEngine {
     val inputSetsGenerator = new InputSetsGenerator(config)
     val inputSetsConfiguration = inputSetsGenerator.generate()
 
-    var lastNodeId: Int = -1
+    var currentNodeId: Int = -1
 
+    println("------------------------ node stats ---------------------------")
     println(s"nodes:")
     println(s"  total: ${config.numberOfNodes}")
     println(s"  honest: $numberOfHonestNodes")
@@ -196,28 +197,32 @@ class SimEngineImpl(config: Config, out: AbstractTextOutput) extends SimEngine {
     println(s"f+1=${config.faultyNodesTolerance + 1}")
 
     for (i <- 1 to numberOfHonestNodes) {
-      lastNodeId += 1
-      val context = new NodeContextImpl(lastNodeId)
-      val node = new HonestNode(lastNodeId, config, context, inputSetsConfiguration.inputSetFor(i), out)
+      currentNodeId += 1
+      val context = new NodeContextImpl(currentNodeId)
+      val node = new HonestNode(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
       val box = NodeBox(node, context)
-      result(lastNodeId) = box
+      result(currentNodeId) = box
     }
 
     for (i <- 1 to numberOfMaliciousNodes) {
-      lastNodeId += 1
-      val context = new NodeContextImpl(lastNodeId)
-      val node = new GangNode(lastNodeId, config, context, inputSetsConfiguration.inputSetFor(i), out)
+      currentNodeId += 1
+      val context = new NodeContextImpl(currentNodeId)
+      val node = new GangNode(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
       val box = NodeBox(node, context)
-      result(lastNodeId) = box
+      result(currentNodeId) = box
     }
 
     for (i <- 1 to numberOfDeafNodes) {
-      lastNodeId += 1
-      val context = new NodeContextImpl(lastNodeId)
-      val node = new DeafNode(lastNodeId, config, context, inputSetsConfiguration.inputSetFor(i), out)
+      currentNodeId += 1
+      val context = new NodeContextImpl(currentNodeId)
+      val node = new DeafNode(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
       val box = NodeBox(node, context)
-      result(lastNodeId) = box
+      result(currentNodeId) = box
     }
+
+    println("------------------------ input sets ---------------------------")
+    for (i <- 0 until config.numberOfNodes)
+      println(f"$i%03d:${result(i).node.inputSet.elements.toSeq.sorted}")
 
     return result
   }

@@ -1,9 +1,9 @@
-package com.selfdualbrain.trix.experiments
+package com.selfdualbrain.trix.experiments.cfg
 
 import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, NodeId}
 import com.selfdualbrain.trix.turns_based_engine.Config
 
-object DefaultConfig extends Config {
+object MediumBlockchainRealistic extends Config {
   override val maxFractionOfFaultyNodes: Double = 0.1
   override val fractionOfDeafNodesAmongFaulty: Double = 1.0
   override val inputSetSizeRange: (Int, Int) = (15, 20)
