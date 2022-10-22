@@ -25,4 +25,5 @@ object SandboxCfg extends Config {
 
   override val initialSizeOfInboxBuffer: Int = 10
   override val manuallyProvidedInputSets: Option[Map[NodeId, CollectionOfMarbles]] = None
+  override val enforceFixedNumberOfActiveNodes: Boolean = true
 }

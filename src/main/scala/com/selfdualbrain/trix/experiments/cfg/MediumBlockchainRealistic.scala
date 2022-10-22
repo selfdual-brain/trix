@@ -20,4 +20,5 @@ object MediumBlockchainRealistic extends Config {
   override val initialSizeOfInboxBuffer: Int = 100
   override val inputSetsGeneratorSeed: Long = 42
   override val manuallyProvidedInputSets: Option[Map[NodeId, CollectionOfMarbles]] = None
+  override val enforceFixedNumberOfActiveNodes: Boolean = true
 }

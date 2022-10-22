@@ -7,7 +7,12 @@ trait RoleDistributionOracle {
 }
 
 //we assume node ids form a 0-based interval
-class CachingRoleDistributionOracle(numberOfNodes: Int, electedSubsetAverageSize: Double, rng: RandomNumberGenerator) extends RoleDistributionOracle {
+class CachingRoleDistributionOracle(
+                                     numberOfNodes: Int,
+                                     electedSubsetAverageSize: Double,
+                                     enforceFixedNumberOfActiveNodes: Boolean,
+                                     rng: RandomNumberGenerator) extends RoleDistributionOracle {
+
   private val fractionToBeElected: Double = electedSubsetAverageSize / numberOfNodes
   private val cache: Array[Boolean] = new Array[Boolean](numberOfNodes)
 
@@ -16,10 +21,16 @@ class CachingRoleDistributionOracle(numberOfNodes: Int, electedSubsetAverageSize
   override def isNodeActive(validator: NodeId): Boolean = cache(validator)
 
   private def runElection(): Unit = {
-//    val rng = new MersenneTwister(rngSeed)
-    for (i <- 0 until numberOfNodes) {
-      cache(i) = rng.nextDouble() < fractionToBeElected
+    if (enforceFixedNumberOfActiveNodes) {
+      val selectedSet = IntIntervalSubsetPicker.run(rng, numberOfNodes - 1, electedSubsetAverageSize.toInt)
+      for (i <- 0 until numberOfNodes)
+        cache(i) = selectedSet.contains(i)
+    } else {
+      for (i <- 0 until numberOfNodes)
+        cache(i) = rng.nextDouble() < fractionToBeElected
+
     }
+
   }
 
 }

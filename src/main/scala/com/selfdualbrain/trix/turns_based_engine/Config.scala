@@ -11,6 +11,8 @@ trait Config {
   def msgDeliveryRngSeed: Long
   def nodeDecisionsRngSeed: Long
 
+  def enforceFixedNumberOfActiveNodes: Boolean
+
   def maxFractionOfFaultyNodes: Double
   def fractionOfDeafNodesAmongFaulty: Double
   def inputSetSizeRange: (Int, Int)

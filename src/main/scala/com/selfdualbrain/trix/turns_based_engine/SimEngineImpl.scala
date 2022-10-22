@@ -12,6 +12,7 @@ class SimEngineImpl(
                      eligibilityRng: RandomNumberGenerator,
                      msgDeliveryRng: RandomNumberGenerator,
                      nodeDecisionsRng: RandomNumberGenerator,
+                     inputSetsGenerator: InputSetsGenerator,
                      out: Option[AbstractTextOutput]
                    ) extends SimEngine {
 
@@ -89,8 +90,8 @@ class SimEngineImpl(
       else
         return messagesCollection.filter(msg => {
           val shouldBeLost: Boolean = msgDeliveryRng.nextDouble() < config.probabilityOfAMessageGettingLost
-          if (shouldBeLost)
-            output(s"$nodeId:incoming-message-lost:$msg")
+//          if (shouldBeLost)
+//            output(s"$nodeId:incoming-message-lost:$msg")
           !shouldBeLost
         })
     }
@@ -116,7 +117,7 @@ class SimEngineImpl(
         config.averageNumberOfActiveNodes
 
     val roleDistributionOracle: RoleDistributionOracle =
-      new CachingRoleDistributionOracle(config.numberOfNodes, electedSubsetAverageSize, rng)
+      new CachingRoleDistributionOracle(config.numberOfNodes, electedSubsetAverageSize, config.enforceFixedNumberOfActiveNodes, rng)
 
     private val broadcastBuffer = new ArrayBuffer[Message]((electedSubsetAverageSize * 2).toInt)
     private val inboxes = new Array[Option[ArrayBuffer[Message]]](config.numberOfNodes)
@@ -187,23 +188,21 @@ class SimEngineImpl(
     val numberOfHonestNodes: Int = config.numberOfNodes - config.actualNumberOfFaultyNodes
     val numberOfDeafNodes: Int = math.floor(config.actualNumberOfFaultyNodes * config.fractionOfDeafNodesAmongFaulty).toInt
     val numberOfMaliciousNodes: Int = config.actualNumberOfFaultyNodes - numberOfDeafNodes
-
-    val inputSetsGenerator = new InputSetsGenerator(config)
     val inputSetsConfiguration = inputSetsGenerator.generate()
 
     var currentNodeId: Int = -1
 
-    println("------------------------ node stats ---------------------------")
-    println(s"nodes:")
-    println(s"  total: ${config.numberOfNodes}")
-    println(s"  honest: $numberOfHonestNodes")
-    println(s"  faulty (total): ${config.actualNumberOfFaultyNodes}")
-    println(s"      malicious: $numberOfMaliciousNodes")
-    println(s"      deaf: $numberOfDeafNodes")
-    println(s"average election size:")
-    println(s"  normal rounds: ${config.averageNumberOfActiveNodes}")
-    println(s"  leader rounds: ${config.averageNumberOfLeaders}")
-    println(s"f+1=${config.faultyNodesTolerance + 1}")
+    output("------------------------ node stats ---------------------------")
+    output(s"nodes:")
+    output(s"  total: ${config.numberOfNodes}")
+    output(s"  honest: $numberOfHonestNodes")
+    output(s"  faulty (total): ${config.actualNumberOfFaultyNodes}")
+    output(s"      malicious: $numberOfMaliciousNodes")
+    output(s"      deaf: $numberOfDeafNodes")
+    output(s"average election size:")
+    output(s"  normal rounds: ${config.averageNumberOfActiveNodes}")
+    output(s"  leader rounds: ${config.averageNumberOfLeaders}")
+    output(s"f+1=${config.faultyNodesTolerance + 1}")
 
     for (i <- 1 to numberOfHonestNodes) {
       currentNodeId += 1
@@ -229,9 +228,9 @@ class SimEngineImpl(
       result(currentNodeId) = box
     }
 
-    println("------------------------ input sets ---------------------------")
+    output("------------------------ input sets ---------------------------")
     for (i <- 0 until config.numberOfNodes)
-      println(f"$i%03d:${result(i).node.inputSet.elements.toSeq.sorted}")
+      output(f"$i%03d:${result(i).node.inputSet.elements.toSeq.sorted}")
 
     return result
   }
