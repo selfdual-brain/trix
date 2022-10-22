@@ -5,14 +5,19 @@ import com.selfdualbrain.trix.protocol_model.{Message, NodeId, Round}
 import org.apache.commons.math3.random.MersenneTwister
 
 import scala.collection.mutable.ArrayBuffer
+import scala.util.Random
 
-class SimEngineImpl(config: Config, out: AbstractTextOutput) extends SimEngine {
+class SimEngineImpl(
+                     config: Config,
+                     eligibilityRng: RandomNumberGenerator,
+                     msgDeliveryRng: RandomNumberGenerator,
+                     nodeDecisionsRng: RandomNumberGenerator,
+                     out: AbstractTextOutput
+                   ) extends SimEngine {
+
   private val nodeBoxes: Array[NodeBox] = initializeNodes()
   var currentRound: Option[Round] = None
   var currentIteration: Int = 0
-  private val eligibilityMasterRng = new MersenneTwister(config.eligibilityRngMasterSeed)
-  private val msgDeliveryRng = new MersenneTwister(config.msgDeliveryRngSeed)
-  private val nodeDecisionsRng = new MersenneTwister(config.nodeDecisionsRngSeed)
   private var currentRoundProcess: Option[SingleRoundProcess] = None
   private var terminatedNodesCounter: Int = 0
 
@@ -39,7 +44,7 @@ class SimEngineImpl(config: Config, out: AbstractTextOutput) extends SimEngine {
     val process = new SingleRoundProcess(
       iteration = currentIteration,
       round = currentRound.get,
-      salt = eligibilityMasterRng.nextInt()
+      rng = eligibilityRng
     )
     currentRoundProcess = Some(process)
     process.run()
@@ -97,14 +102,13 @@ class SimEngineImpl(config: Config, out: AbstractTextOutput) extends SimEngine {
 
     def reachedTerminationOfProtocol: Boolean = terminatedFlag
 
-    override def rng: MersenneTwister = nodeDecisionsRng
+    override def rng: RandomNumberGenerator = nodeDecisionsRng
   }
 
   /*                                                 SINGLE ROUND PROCESSING                                          */
 
-  class SingleRoundProcess(iteration: Int, round: Round, salt: Int) {
+  class SingleRoundProcess(iteration: Int, round: Round, rng: RandomNumberGenerator) {
     //perform selection of nodes to be active in this round
-    val perRoundEligibilitySeed: Long = salt.toLong * (iteration * 4 + round.number + 1)
     val electedSubsetAverageSize: Double =
       if (round.isLeaderRound)
         config.averageNumberOfLeaders
@@ -112,7 +116,7 @@ class SimEngineImpl(config: Config, out: AbstractTextOutput) extends SimEngine {
         config.averageNumberOfActiveNodes
 
     val roleDistributionOracle: RoleDistributionOracle =
-      new CachingRoleDistributionOracle(config.numberOfNodes, electedSubsetAverageSize, rngSeed = perRoundEligibilitySeed)
+      new CachingRoleDistributionOracle(config.numberOfNodes, electedSubsetAverageSize, rng)
 
     private val broadcastBuffer = new ArrayBuffer[Message]((electedSubsetAverageSize * 2).toInt)
     private val inboxes = new Array[Option[ArrayBuffer[Message]]](config.numberOfNodes)

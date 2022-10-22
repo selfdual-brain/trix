@@ -3,6 +3,8 @@ package com.selfdualbrain.trix.turns_based_engine
 import com.selfdualbrain.trix.protocol_model.{Message, NodeId, Round}
 import org.apache.commons.math3.random.MersenneTwister
 
+import scala.util.Random
+
 trait NodeContext {
   def iteration: Int
   def currentRound: Round
@@ -11,7 +13,7 @@ trait NodeContext {
   def broadcastIncludingMyself(msg: Message): Unit
   def send(msg: Message, destination: NodeId): Unit
   def inbox(): Iterable[Message]
-  def rng: MersenneTwister
+  def rng: RandomNumberGenerator
 
   //"malicious" node implementations should not signal "termination of protocol"
   //if they want to participate in communication forever

@@ -2,7 +2,7 @@ package com.selfdualbrain.trix.experiments
 
 import com.selfdualbrain.continuum.textout.TextOutput
 import com.selfdualbrain.trix.experiments.cfg.{MediumBlockchainRealistic, SandboxCfg, SmallBlockchainWithPerfectNetworkCfg, SmallBlockchainWithPoorNetworkCfg}
-import com.selfdualbrain.trix.turns_based_engine.{Config, SimEngineImpl}
+import com.selfdualbrain.trix.turns_based_engine.{Config, RandomNumberGenerator, RngFactory, SimEngineImpl}
 
 object DemoRunner {
 
@@ -20,9 +20,12 @@ object DemoRunner {
     }
 
     val output = TextOutput.overConsole(4, ' ')
-    val engine = new SimEngineImpl(cfg, output)
+    val eligibilityRng: RandomNumberGenerator = RngFactory.getInstance(cfg.rngAlgorithm, cfg.eligibilityRngSeed)
+    val msgDeliveryRng: RandomNumberGenerator = RngFactory.getInstance(cfg.rngAlgorithm, cfg.msgDeliveryRngSeed)
+    val nodeDecisionsRng: RandomNumberGenerator = RngFactory.getInstance(cfg.rngAlgorithm, cfg.nodeDecisionsRngSeed)
+    val engine = new SimEngineImpl(cfg, eligibilityRng, msgDeliveryRng, nodeDecisionsRng, output)
 
-    while (engine.numberOfNodesWhichTerminated() < cfg.numberOfNodes && engine.currentIteration < 3)
+    while (engine.numberOfNodesWhichTerminated() < cfg.numberOfNodes && engine.currentIteration < 20)
       engine.playNextRound()
   }
 

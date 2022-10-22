@@ -42,13 +42,19 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
             None
           else {
             val maxCertifiedIteration: Int = latestValidStatusMessages.map(msg => msg.certifiedIteration).max
-            if (maxCertifiedIteration < 0)
-              throw new RuntimeException("Could not form SVP: maxCertifiedIteration < 0")
-            val messagesWithMaxCertifiedIteration = latestValidStatusMessages.filter(msg => msg.certifiedIteration == maxCertifiedIteration)
-            val candidateSets = messagesWithMaxCertifiedIteration.map(msg => msg.acceptedSet)
-            if (candidateSets.size > 1)
-              throw new RuntimeException(s"Could not form SVP: candidateSets.size = ${candidateSets.size}")
-            Some(SafeValueProof.Proper(context.iteration, latestValidStatusMessages, messagesWithMaxCertifiedIteration.head))
+
+//            todo: check this case in go-spacemesh
+//            if (maxCertifiedIteration < 0)
+//              throw new RuntimeException("Could not form SVP: maxCertifiedIteration < 0")
+
+            if (maxCertifiedIteration >= 0) {
+              val messagesWithMaxCertifiedIteration = latestValidStatusMessages.filter(msg => msg.certifiedIteration == maxCertifiedIteration)
+              val candidateSets = messagesWithMaxCertifiedIteration.map(msg => msg.acceptedSet)
+              if (candidateSets.size > 1)
+                throw new RuntimeException(s"Could not form SVP: candidateSets.size = ${candidateSets.size}")
+              Some(SafeValueProof.Proper(context.iteration, latestValidStatusMessages, messagesWithMaxCertifiedIteration.head))
+            } else
+              None
           }
         }
 

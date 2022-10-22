@@ -17,10 +17,11 @@ object SmallBlockchainWithPerfectNetworkCfg extends Config {
   override val averageNumberOfActiveNodes: Double = 5
   override val averageNumberOfLeaders: Double = 1
 
-  override val eligibilityRngMasterSeed: Long = 42
+  override val eligibilityRngSeed: Long = 42
   override val nodeDecisionsRngSeed: Long = 101
   override val msgDeliveryRngSeed: Long = 299792458
   override val inputSetsGeneratorSeed: Long = 42
+  override val rngAlgorithm: String = "secure-random"
 
   override val initialSizeOfInboxBuffer: Int = 10
   override val manuallyProvidedInputSets: Option[Map[NodeId, CollectionOfMarbles]] = None

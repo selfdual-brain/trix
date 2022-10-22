@@ -11,16 +11,17 @@ object SmallBlockchainWithPoorNetworkCfg extends Config {
   override val marblesRangeForHonestNodes: Int = 20
 
   override val isNetworkReliable: Boolean = false
-  override val probabilityOfAMessageGettingLost: Double = 0.07
+  override val probabilityOfAMessageGettingLost: Double = 0.3
 
   override val numberOfNodes: Int = 10
   override val averageNumberOfActiveNodes: Double = 5
   override val averageNumberOfLeaders: Double = 1
 
-  override val eligibilityRngMasterSeed: Long = 42
-  override val nodeDecisionsRngSeed: Long = 101
-  override val msgDeliveryRngSeed: Long = 299792458
+  override val eligibilityRngSeed: Long = 2
+  override val nodeDecisionsRngSeed: Long = 2
+  override val msgDeliveryRngSeed: Long = 2
   override val inputSetsGeneratorSeed: Long = 42
+  override val rngAlgorithm: String = "secure-random"
 
   override val initialSizeOfInboxBuffer: Int = 10
   override val manuallyProvidedInputSets: Option[Map[NodeId, CollectionOfMarbles]] = None

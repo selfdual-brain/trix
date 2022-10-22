@@ -4,10 +4,13 @@ import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, NodeId}
 
 trait Config {
   def numberOfNodes: Int
-  def eligibilityRngMasterSeed: Long
+
+  def rngAlgorithm: String
+  def eligibilityRngSeed: Long
   def inputSetsGeneratorSeed: Long
   def msgDeliveryRngSeed: Long
   def nodeDecisionsRngSeed: Long
+
   def maxFractionOfFaultyNodes: Double
   def fractionOfDeafNodesAmongFaulty: Double
   def inputSetSizeRange: (Int, Int)
