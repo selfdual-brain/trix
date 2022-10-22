@@ -1,11 +1,9 @@
 package com.selfdualbrain.trix.turns_based_engine
 
 import com.selfdualbrain.continuum.textout.AbstractTextOutput
-import com.selfdualbrain.trix.protocol_model.{Message, NodeId, Round}
-import org.apache.commons.math3.random.MersenneTwister
+import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, Message, NodeId, Round}
 
 import scala.collection.mutable.ArrayBuffer
-import scala.util.Random
 
 class SimEngineImpl(
                      config: Config,
@@ -60,6 +58,7 @@ class SimEngineImpl(
 
   class NodeContextImpl(nodeId: NodeId) extends NodeContext {
     private var terminatedFlag: Boolean = false
+    private var consensusResultX: Option[CollectionOfMarbles] = None
 
     override def iteration: NodeId = SimEngineImpl.this.currentIteration
     override def currentRound: Round =
@@ -90,16 +89,17 @@ class SimEngineImpl(
       else
         return messagesCollection.filter(msg => {
           val shouldBeLost: Boolean = msgDeliveryRng.nextDouble() < config.probabilityOfAMessageGettingLost
-//          if (shouldBeLost)
-//            output(s"$nodeId:incoming-message-lost:$msg")
           !shouldBeLost
         })
     }
 
-    override def signalProtocolTermination(): Unit = {
+    override def signalProtocolTermination(coll: CollectionOfMarbles): Unit = {
       terminatedFlag = true
       terminatedNodesCounter += 1
+      consensusResultX = Some(coll)
     }
+
+    override def consensusResult: Option[CollectionOfMarbles] = consensusResultX
 
     def reachedTerminationOfProtocol: Boolean = terminatedFlag
 
@@ -152,7 +152,10 @@ class SimEngineImpl(
 
     def run(): Unit = {
       val electedCollectionOfNodes: Iterable[NodeId] = (0 until config.numberOfNodes).filter(nodeId => roleDistributionOracle.isNodeActive(nodeId))
-      output(s"########## iteration=$iteration round=$round terminated-nodes=$terminatedNodesCounter elected-nodes=$electedCollectionOfNodes")
+      output(s"########## iteration=$iteration round=$round terminated-nodes=$terminatedNodesCounter elected-nodes=$electedCollectionOfNodes terminated-list=[${nodesWhichTerminated().mkString(",")}]")
+
+      for (i <- SimEngineImpl.this.nodesWhichTerminated())
+        output(s"(node $i has terminated with result: ${nodeBoxes(i).context.consensusResult})")
 
       //run sending phase of this round
       for (i <- 0 until config.numberOfNodes if roleDistributionOracle.isNodeActive(i)) {
@@ -161,13 +164,15 @@ class SimEngineImpl(
           box.node.executeSendingPhase()
       }
 
+      output("---phase-change---")
+
       //run receiving phase of this round
       for (i <- 0 until config.numberOfNodes) {
         val box = nodeBoxes(i)
         if (! box.context.reachedTerminationOfProtocol) {
-          val termination = nodeBoxes(i).node.executeCalculationPhase()
-          if (termination)
-            box.context.signalProtocolTermination()
+          val consensusResult = nodeBoxes(i).node.executeCalculationPhase()
+          if (consensusResult.isDefined)
+            box.context.signalProtocolTermination(consensusResult.get)
         }
       }
     }

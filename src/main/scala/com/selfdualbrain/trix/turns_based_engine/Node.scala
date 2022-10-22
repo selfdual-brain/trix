@@ -10,8 +10,8 @@ abstract class Node(val id: NodeId, simConfig: Config, context: NodeContext, val
 
   def executeSendingPhase(): Unit
 
-  //returns true if protocol termination was achieved
-  def executeCalculationPhase(): Boolean
+  //returns Some(consensusResult) if protocol termination was achieved
+  def executeCalculationPhase(): Option[CollectionOfMarbles]
 
   protected def output(code: String, body: String): Unit = {
     if (out.isDefined)

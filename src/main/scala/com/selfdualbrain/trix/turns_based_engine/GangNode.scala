@@ -8,5 +8,5 @@ class GangNode(id: NodeId, simConfig: Config, nodeContext: NodeContext, inputSet
 
   override def executeSendingPhase(): Unit = ???
 
-  override def executeCalculationPhase(): Boolean = ???
+  override def executeCalculationPhase(): Option[CollectionOfMarbles] = ???
 }

@@ -31,16 +31,20 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         )
 
       case Round.Proposal =>
+        output("leader", s"latest valid status messages: $latestValidStatusMessages")
         val svp: Option[SafeValueProof] = if (certifiedIteration == -1) {
           val bufferOfMarbles = new mutable.HashSet[Marble]
-          for (statusMsg <- latestValidStatusMessages)
+          val statusMessagesToBeConsidered = latestValidStatusMessages.filter(msg => msg.acceptedSet.elements.subsetOf(marblesWithEnoughSupport)).toSet
+          for (statusMsg <- statusMessagesToBeConsidered)
             bufferOfMarbles.addAll(statusMsg.acceptedSet.elements)
           val magmaSet = new CollectionOfMarbles(bufferOfMarbles.toSet)
-          Some(SafeValueProof.Bootstrap(context.iteration, latestValidStatusMessages, magmaSet))
+          output("leader-magma-set", s"$magmaSet")
+          Some(SafeValueProof.Bootstrap(context.iteration, statusMessagesToBeConsidered, magmaSet))
         } else {
-          if (latestValidStatusMessages.isEmpty)
+          if (latestValidStatusMessages.isEmpty) {
+            output("leader-svp-fail", "no valid status messages")
             None
-          else {
+          } else {
             val maxCertifiedIteration: Int = latestValidStatusMessages.map(msg => msg.certifiedIteration).max
 
 //todo: check this case in go-spacemesh
@@ -56,8 +60,10 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
                 throw new RuntimeException(s"Could not form SVP: max-certified-iteration=$maxCertifiedIteration candidateSets.size = ${candidateSets.size}")
               }
               Some(SafeValueProof.Proper(context.iteration, latestValidStatusMessages, messagesWithMaxCertifiedIteration.head))
-            } else
+            } else {
+              output("leader-svp-fail", "max certified iteration (among seen status messages) was -1")
               None
+            }
           }
         }
 
@@ -67,8 +73,10 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         }
 
       case Round.Commit =>
-        if (commitCandidate.isDefined)
-          context.broadcastIncludingMyself(Message.Commit(id, context.iteration, commitCandidate.get))
+        commitCandidate match {
+          case Some(coll) => context.broadcastIncludingMyself(Message.Commit(id, context.iteration, commitCandidate.get))
+          case None => output("commit-candidate-not-available", "proposal was missing")
+        }
 
       case Round.Notify =>
         if (lastLocallyFormedCommitCertificate.isDefined)
@@ -76,7 +84,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
     }
   }
 
-  override def executeCalculationPhase(): Boolean = {
+  override def executeCalculationPhase(): Option[CollectionOfMarbles] = {
     context.currentRound match {
 
       case Round.Preround =>
@@ -91,12 +99,13 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         output("marbles-with-enough-support", marblesWithEnoughSupport.mkString(","))
         currentConsensusApproximation = new CollectionOfMarbles(currentConsensusApproximation.elements.intersect(marblesWithEnoughSupport))
         output("consensus-approx-update", currentConsensusApproximation.mkString(","))
-        return false
+        return None
 
       case Round.Status =>
         val allStatusMessages: Iterable[Message.Status] = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.Status]]
-        latestValidStatusMessages = allStatusMessages.filter(msg => msg.acceptedSet.elements.subsetOf(marblesWithEnoughSupport)).toSet
-        return false
+        latestValidStatusMessages = allStatusMessages.toSet
+//        latestValidStatusMessages = allStatusMessages.filter(msg => msg.acceptedSet.elements.subsetOf(marblesWithEnoughSupport)).toSet
+        return None
 
       case Round.Proposal =>
         val allProposalMessages: Iterable[Message.Proposal] = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.Proposal]]
@@ -120,7 +129,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
           commitCandidate = None
         }
 
-        return false
+        return None
 
       case Round.Commit =>
         if (commitCandidate.isDefined) {
@@ -130,15 +139,16 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
           if (howManyOfThem >= simConfig.faultyNodesTolerance + 1) {
             lastLocallyFormedCommitCertificate = Some(CommitCertificate(acceptedSet = commitCandidate.get, context.iteration, commitMessagesVotingOnOurCandidate.toArray))
             currentConsensusApproximation = commitCandidate.get
-            output("consensus-approx-update", currentConsensusApproximation.mkString(","))
+            output("commit-certificate", lastLocallyFormedCommitCertificate.toString)
           } else {
+            output ("commit-certificate", "[none]")
             lastLocallyFormedCommitCertificate = None
           }
         } else {
           lastLocallyFormedCommitCertificate = None
         }
 
-        return false
+        return None
 
       case Round.Notify =>
         val allNotifyMessages = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.Notify]]
@@ -163,9 +173,10 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         }
 
         //update the counter of notify messages
-        var happyToTerminate = false
+        var consensusResult: Option[CollectionOfMarbles] = None
+
         for (msg <- allNotifyMessages) {
-          val setInQuestion = msg.commitCertificate.acceptedSet
+          val setInQuestion: CollectionOfMarbles = msg.commitCertificate.acceptedSet
           notifyMessagesCounter.get(setInQuestion) match {
             case None =>
               val coll = new mutable.HashSet[NodeId]
@@ -175,14 +186,15 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
             case Some(coll) =>
               coll += msg.sender
               if (coll.size >= simConfig.faultyNodesTolerance + 1) {
-                happyToTerminate = true
-                output("terminating", s"consensus=$setInQuestion")
+                if (consensusResult.isEmpty)
+                  consensusResult = Some(setInQuestion)
               }
           }
         }
-
         output("notify-counters", notifyMessagesCounterPrettyPrint())
-        return happyToTerminate
+        if (consensusResult.nonEmpty)
+          output("terminating", s"consensus=${consensusResult.get}")
+        return consensusResult
     }
 
   }

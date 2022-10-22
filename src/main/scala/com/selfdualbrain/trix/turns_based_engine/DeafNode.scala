@@ -10,9 +10,9 @@ class DeafNode(id: NodeId, simConfig: Config, nodeContext: NodeContext, inputSet
     //do nothing
   }
 
-  override def executeCalculationPhase(): Boolean = {
+  override def executeCalculationPhase(): Option[CollectionOfMarbles] = {
     //do nothing
-    return false
+    return None
   }
 
 }

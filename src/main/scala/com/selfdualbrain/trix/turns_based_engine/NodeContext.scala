@@ -1,9 +1,6 @@
 package com.selfdualbrain.trix.turns_based_engine
 
-import com.selfdualbrain.trix.protocol_model.{Message, NodeId, Round}
-import org.apache.commons.math3.random.MersenneTwister
-
-import scala.util.Random
+import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, Message, NodeId, Round}
 
 trait NodeContext {
   def iteration: Int
@@ -15,9 +12,16 @@ trait NodeContext {
   def inbox(): Iterable[Message]
   def rng: RandomNumberGenerator
 
-  //"malicious" node implementations should not signal "termination of protocol"
-  //if they want to participate in communication forever
-  //in "real life" termination of protocol in an internal flag of a node, here we share it with
-  //simulation engine to make the simulator API more comfortable
-  def signalProtocolTermination(): Unit
+  /**
+   * Signals achieving the end of the consensus protocol.
+   *
+   * Caution: malicious" node implementations should not signal "termination of protocol" if they want to participate in communication forever.
+   * In "real life" termination of protocol in an internal flag of a node, here we share it with simulation engine to make the simulator
+   * API more comfortable
+   *
+   * @param coll result of consensus (collection of marbles that the terminating node believes to be the "final" answer to the consensus problem
+   */
+  def signalProtocolTermination(coll: CollectionOfMarbles): Unit
+
+  def consensusResult: Option[CollectionOfMarbles]
 }
