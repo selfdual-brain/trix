@@ -12,7 +12,7 @@ class SimEngineImpl(
                      eligibilityRng: RandomNumberGenerator,
                      msgDeliveryRng: RandomNumberGenerator,
                      nodeDecisionsRng: RandomNumberGenerator,
-                     out: AbstractTextOutput
+                     out: Option[AbstractTextOutput]
                    ) extends SimEngine {
 
   private val nodeBoxes: Array[NodeBox] = initializeNodes()
@@ -90,7 +90,7 @@ class SimEngineImpl(
         return messagesCollection.filter(msg => {
           val shouldBeLost: Boolean = msgDeliveryRng.nextDouble() < config.probabilityOfAMessageGettingLost
           if (shouldBeLost)
-            out.print(s"$nodeId:incoming-message-lost:$msg")
+            output(s"$nodeId:incoming-message-lost:$msg")
           !shouldBeLost
         })
     }
@@ -125,7 +125,7 @@ class SimEngineImpl(
 
     def registerMsgBroadcast(msg: Message): Unit = {
       broadcastBuffer += msg
-      out.print(s"${msg.sender}:broadcast:$msg")
+      output(s"${msg.sender}:broadcast:$msg")
     }
 
     def registerMsgSend(msg: Message, destination: NodeId): Unit = {
@@ -137,7 +137,7 @@ class SimEngineImpl(
       }
 
       inboxes(destination).get += msg
-      out.print(s"${msg.sender}:direct-send-to[$destination]:$msg")
+      output(s"${msg.sender}:direct-send-to[$destination]:$msg")
     }
 
     def getAllMessagesDeliveredTo(nodeId: NodeId): Iterable[Message] = {
@@ -151,7 +151,7 @@ class SimEngineImpl(
 
     def run(): Unit = {
       val electedCollectionOfNodes: Iterable[NodeId] = (0 until config.numberOfNodes).filter(nodeId => roleDistributionOracle.isNodeActive(nodeId))
-      out.print(s"########## iteration=$iteration round=$round terminated-nodes=$terminatedNodesCounter elected-nodes=$electedCollectionOfNodes")
+      output(s"########## iteration=$iteration round=$round terminated-nodes=$terminatedNodesCounter elected-nodes=$electedCollectionOfNodes")
 
       //run sending phase of this round
       for (i <- 0 until config.numberOfNodes if roleDistributionOracle.isNodeActive(i)) {
@@ -173,6 +173,11 @@ class SimEngineImpl(
   }
 
   case class NodeBox(node: Node, context: NodeContextImpl)
+
+  protected def output(txt: String): Unit = {
+    if (out.isDefined)
+      out.get.print(txt)
+  }
 
   /*                                                 INITIALIZATION OF NODES                                          */
 

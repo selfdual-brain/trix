@@ -14,7 +14,7 @@ object MediumBlockchainRealistic extends Config {
   override val averageNumberOfActiveNodes: Double = 15
   override val averageNumberOfLeaders: Double = 3
   override val eligibilityRngSeed: Long = 42
-  override val rngAlgorithm: String = "secure-random"
+  override val rngAlgorithm: String = "jdk-std"
   override val nodeDecisionsRngSeed: Long = 102
   override val msgDeliveryRngSeed: Long = 299792451
   override val initialSizeOfInboxBuffer: Int = 100
