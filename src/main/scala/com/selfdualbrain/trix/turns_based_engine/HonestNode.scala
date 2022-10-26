@@ -45,24 +45,27 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
             output("leader-svp-fail", "no valid status messages")
             None
           } else {
-            val maxCertifiedIteration: Int = latestValidStatusMessages.map(msg => msg.certifiedIteration).max
-
-//todo: check this case in go-spacemesh
-//   if (maxCertifiedIteration < 0)
-//      throw new RuntimeException("Could not form SVP: maxCertifiedIteration < 0")
-
-            if (maxCertifiedIteration >= 0) {
-              val messagesWithMaxCertifiedIteration = latestValidStatusMessages.filter(msg => msg.certifiedIteration == maxCertifiedIteration)
-              val candidateSets = messagesWithMaxCertifiedIteration.map(msg => msg.acceptedSet)
-              if (candidateSets.size > 1) {
-                output("svp-candidate-sets", s"$candidateSets")
-                output("messages-with-max-ci", s"$messagesWithMaxCertifiedIteration")
-                throw new RuntimeException(s"Could not form SVP: max-certified-iteration=$maxCertifiedIteration candidateSets.size = ${candidateSets.size}")
-              }
-              Some(SafeValueProof.Proper(context.iteration, latestValidStatusMessages, messagesWithMaxCertifiedIteration.head))
-            } else {
-              output("leader-svp-fail", "max certified iteration (among seen status messages) was -1")
+            if (latestValidStatusMessages.size < simConfig.faultyNodesTolerance + 1) {
+              output("leader-svp-fail", s"number of status messages less than f+1: ${latestValidStatusMessages.size}")
               None
+            } else {
+              val maxCertifiedIteration: Int = latestValidStatusMessages.map(msg => msg.certifiedIteration).max
+              //todo: check this case in go-spacemesh
+              //   if (maxCertifiedIteration < 0)
+              //      throw new RuntimeException("Could not form SVP: maxCertifiedIteration < 0")
+              if (maxCertifiedIteration >= 0) {
+                val messagesWithMaxCertifiedIteration = latestValidStatusMessages.filter(msg => msg.certifiedIteration == maxCertifiedIteration)
+                val candidateSets = messagesWithMaxCertifiedIteration.map(msg => msg.acceptedSet)
+                if (candidateSets.size > 1) {
+                  output("svp-candidate-sets", s"$candidateSets")
+                  output("messages-with-max-ci", s"$messagesWithMaxCertifiedIteration")
+                  throw new RuntimeException(s"Could not form SVP: max-certified-iteration=$maxCertifiedIteration candidateSets.size = ${candidateSets.size}")
+                }
+                Some(SafeValueProof.Proper(context.iteration, latestValidStatusMessages, messagesWithMaxCertifiedIteration.head))
+              } else {
+                output("leader-svp-fail", "max certified iteration (among seen status messages) was -1")
+                None
+              }
             }
           }
         }

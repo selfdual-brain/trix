@@ -27,8 +27,17 @@ object DemoRunner {
     val inputSetsGenerator: InputSetsGenerator = new InputSetsGenerator(cfg, inputSetsRng)
     val engine = new SimEngineImpl(cfg, eligibilityRng, msgDeliveryRng, nodeDecisionsRng, inputSetsGenerator, output)
 
-    while (engine.numberOfNodesWhichTerminated() < cfg.numberOfNodes && engine.currentIteration < 20)
+    while (engine.numberOfNodesWhichTerminated() < cfg.numberOfNodes && engine.currentIteration < 50)
       engine.playNextRound()
+
+    println("=================================== final stats ===================================================")
+    println(s"number of nodes which terminated: ${engine.numberOfNodesWhichTerminated()}")
+    println()
+    for (i <- 0 until cfg.numberOfNodes) {
+      val hasTerminated: Boolean = engine.reachedTerminationOfProtocol(i)
+      var terminationMarker: String = if (hasTerminated) "[x]" else "[ ]"
+      println(f"$i%03d:$terminationMarker")
+    }
   }
 
 }

@@ -54,7 +54,13 @@ class SimEngineImpl(
 
   override def numberOfNodesWhichTerminated(): NodeId = terminatedNodesCounter
 
+  override def reachedTerminationOfProtocol(nodeId: NodeId): Boolean = {
+    require (nodeId >= 0 && nodeId < config.numberOfNodes, s"node id=$nodeId outside range of this engine: 0..${config.numberOfNodes-1}")
+    nodeBoxes(nodeId).context.reachedTerminationOfProtocol
+  }
+
   /*                                                 NODE CONTEXT                                              */
+
 
   class NodeContextImpl(nodeId: NodeId) extends NodeContext {
     private var terminatedFlag: Boolean = false
@@ -88,7 +94,12 @@ class SimEngineImpl(
         return messagesCollection
       else
         return messagesCollection.filter(msg => {
-          val shouldBeLost: Boolean = msgDeliveryRng.nextDouble() < config.probabilityOfAMessageGettingLost
+          val shouldBeLost: Boolean = {
+            if (nodeId == msg.sender)
+              false
+            else
+              msgDeliveryRng.nextDouble() < config.probabilityOfAMessageGettingLost
+          }
           !shouldBeLost
         })
     }
@@ -155,7 +166,7 @@ class SimEngineImpl(
       output(s"########## iteration=$iteration round=$round terminated-nodes=$terminatedNodesCounter elected-nodes=$electedCollectionOfNodes terminated-list=[${nodesWhichTerminated().mkString(",")}]")
 
       for (i <- SimEngineImpl.this.nodesWhichTerminated())
-        output(s"(node $i has terminated with result: ${nodeBoxes(i).context.consensusResult})")
+        output(s"//node $i has terminated with result: [${nodeBoxes(i).context.consensusResult.get.mkString(",")}]")
 
       //run sending phase of this round
       for (i <- 0 until config.numberOfNodes if roleDistributionOracle.isNodeActive(i)) {

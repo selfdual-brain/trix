@@ -17,10 +17,10 @@ object SmallBlockchainWithPoorNetworkCfg extends Config {
   override val averageNumberOfActiveNodes: Double = 5
   override val averageNumberOfLeaders: Double = 1
 
-  override val eligibilityRngSeed: Long = 159
-  override val nodeDecisionsRngSeed: Long = 160
-  override val msgDeliveryRngSeed: Long = 161
-  override val inputSetsGeneratorSeed: Long = 162
+  override val eligibilityRngSeed: Long = 670
+  override val nodeDecisionsRngSeed: Long = 671
+  override val msgDeliveryRngSeed: Long = 672
+  override val inputSetsGeneratorSeed: Long = 673
   override val rngAlgorithm: String = "jdk-std"
 
   override val initialSizeOfInboxBuffer: Int = 10
