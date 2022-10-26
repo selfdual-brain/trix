@@ -1,6 +1,7 @@
 package com.selfdualbrain.trix.turns_based_engine
 
 import com.selfdualbrain.continuum.textout.AbstractTextOutput
+import com.selfdualbrain.trix.data_structures.IndexedBatteryOfIntCounters
 import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, Message, NodeId, Round}
 
 import scala.collection.mutable.ArrayBuffer
@@ -19,6 +20,7 @@ class SimEngineImpl(
   var currentIteration: Int = 0
   private var currentRoundProcess: Option[SingleRoundProcess] = None
   private var terminatedNodesCounter: Int = 0
+  private var counterOfRoundsWithTerminatingNodes: Int = 0
 
   /*                                                 PUBLIC                                             */
 
@@ -40,6 +42,7 @@ class SimEngineImpl(
         currentIteration += 1
     }
 
+    val initialNumberOfTerminatedNodes: Int = terminatedNodesCounter
     val process = new SingleRoundProcess(
       iteration = currentIteration,
       round = currentRound.get,
@@ -47,17 +50,23 @@ class SimEngineImpl(
     )
     currentRoundProcess = Some(process)
     process.run()
+    val finalNumberOfTerminatedNodes: Int = terminatedNodesCounter
+
+    if (finalNumberOfTerminatedNodes > initialNumberOfTerminatedNodes)
+      counterOfRoundsWithTerminatingNodes += 1
   }
 
-  override def nodesWhichTerminated(): Iterator[NodeId] =
+  override def nodesWhichTerminated: Iterator[NodeId] =
     nodeBoxes.iterator.filter(box => box.context.reachedTerminationOfProtocol).map(box => box.node.id)
 
-  override def numberOfNodesWhichTerminated(): NodeId = terminatedNodesCounter
+  override def numberOfNodesWhichTerminated: NodeId = terminatedNodesCounter
 
   override def reachedTerminationOfProtocol(nodeId: NodeId): Boolean = {
     require (nodeId >= 0 && nodeId < config.numberOfNodes, s"node id=$nodeId outside range of this engine: 0..${config.numberOfNodes-1}")
     nodeBoxes(nodeId).context.reachedTerminationOfProtocol
   }
+
+  override def numberOfRoundsWithTermination: NodeId = counterOfRoundsWithTerminatingNodes
 
   /*                                                 NODE CONTEXT                                              */
 
@@ -163,9 +172,9 @@ class SimEngineImpl(
 
     def run(): Unit = {
       val electedCollectionOfNodes: Iterable[NodeId] = (0 until config.numberOfNodes).filter(nodeId => roleDistributionOracle.isNodeActive(nodeId))
-      output(s"########## iteration=$iteration round=$round terminated-nodes=$terminatedNodesCounter elected-nodes=$electedCollectionOfNodes terminated-list=[${nodesWhichTerminated().mkString(",")}]")
+      output(s"########## iteration=$iteration round=$round terminated-nodes=$terminatedNodesCounter elected-nodes=$electedCollectionOfNodes terminated-list=[${nodesWhichTerminated.mkString(",")}]")
 
-      for (i <- SimEngineImpl.this.nodesWhichTerminated())
+      for (i <- SimEngineImpl.this.nodesWhichTerminated)
         output(s"//node $i has terminated with result: [${nodeBoxes(i).context.consensusResult.get.mkString(",")}]")
 
       //run sending phase of this round
@@ -247,6 +256,21 @@ class SimEngineImpl(
     output("------------------------ input sets ---------------------------")
     for (i <- 0 until config.numberOfNodes)
       output(f"$i%03d:${result(i).node.inputSet.elements.toSeq.sorted}")
+
+    output("-------------------- input sets overlap ---------------------------")
+    var overlap = result(0).node.inputSet.elements
+    for (i <- 1 until config.numberOfNodes)
+      overlap = overlap.intersect(result(i).node.inputSet.elements)
+    output(s"strict-overlap-of-input-sets: ${overlap.toSeq.sorted}")
+
+    val counters = new IndexedBatteryOfIntCounters(allowNegativeValues = false)
+    for (i <- 0 until config.numberOfNodes) {
+      for (marble <- result(i).node.inputSet.elements) {
+        counters.increment(marble, 1)
+      }
+    }
+    val marblesWithEnoughSupport = counters.indexesWithBalanceAtLeast(config.faultyNodesTolerance + 1).toSet
+    output(s"(f+1)-overlap-of-input-sets: ${marblesWithEnoughSupport.toSeq.sorted}")
 
     return result
   }

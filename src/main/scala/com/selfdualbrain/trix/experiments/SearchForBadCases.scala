@@ -5,14 +5,14 @@ import com.selfdualbrain.trix.turns_based_engine.{Config, InputSetsGenerator, Ra
 
 object SearchForBadCases {
   val HARE_ITERATIONS: Int = 20
-  val TEST_CASES_TO_CHECK: Int = 1000
+  val TEST_CASES_TO_CHECK: Int = 200
 
   def main(args: Array[String]): Unit = {
 
-    var numberOfWinner: Int = -1
+    var smallestNumberOfTerminatorsWinner: Int = -1
     var smallestNumberOfTerminators: Int = Int.MaxValue
-
-
+    var biggestNumberOfRoundsWithTerminationWinner: Int = -1
+    var biggestNumberOfRoundsWithTerminatingNodes: Int = 0
 
     for (i <- 0 until TEST_CASES_TO_CHECK ) {
       println(s"running simulation $i")
@@ -23,18 +23,31 @@ object SearchForBadCases {
       val inputSetsRng: RandomNumberGenerator = RngFactory.getInstance(cfg.rngAlgorithm, cfg.inputSetsGeneratorSeed)
       val inputSetsGenerator: InputSetsGenerator = new InputSetsGenerator(cfg, inputSetsRng)
       val engine = new SimEngineImpl(cfg, eligibilityRng, msgDeliveryRng, nodeDecisionsRng, inputSetsGenerator, out = None)
-      while (engine.numberOfNodesWhichTerminated() < cfg.numberOfNodes && engine.currentIteration < HARE_ITERATIONS)
+
+      //play the whole simulation
+      while (engine.numberOfNodesWhichTerminated < cfg.numberOfNodes && engine.currentIteration < HARE_ITERATIONS)
         engine.playNextRound()
-      if (engine.numberOfNodesWhichTerminated() < smallestNumberOfTerminators) {
-        numberOfWinner = i
-        smallestNumberOfTerminators = engine.numberOfNodesWhichTerminated()
+
+      //update records
+      if (engine.numberOfNodesWhichTerminated < smallestNumberOfTerminators) {
+        smallestNumberOfTerminatorsWinner = i
+        smallestNumberOfTerminators = engine.numberOfNodesWhichTerminated
+      }
+
+      if (engine.numberOfRoundsWithTermination > biggestNumberOfRoundsWithTerminatingNodes) {
+        biggestNumberOfRoundsWithTerminationWinner = i
+        biggestNumberOfRoundsWithTerminatingNodes = engine.numberOfRoundsWithTermination
       }
     }
 
     println("------------------------------ results ------------------------------")
     println(s"hare iterations: $HARE_ITERATIONS")
-    println(s"worst case found: only $smallestNumberOfTerminators nodes reached termination of the protocol")
-    println(s"random seed: $numberOfWinner")
+    println(s"worst case in category 'smallest number of terminators'")
+    println(s"    number of terminators: $smallestNumberOfTerminators")
+    println(s"    random seed: $smallestNumberOfTerminatorsWinner")
+    println(s"worst case in category 'termination spread across many iterations'")
+    println(s"    number of rounds with termination: $biggestNumberOfRoundsWithTerminatingNodes")
+    println(s"    random seed: $biggestNumberOfRoundsWithTerminationWinner")
   }
 
   class TestCfg(seed: Long) extends Config {

@@ -71,7 +71,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         }
 
         if (svp.isDefined) {
-          output("proposal-by-honest-leader", svp.get.safeValue.toString)
+          output("svp-formed", svp.get.safeValue.toString)
           context.broadcastIncludingMyself(Message.Proposal(id, context.iteration, svp.get, fakeHash = context.rng.nextLong()))
         }
 
@@ -222,7 +222,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
     }
     val honestMessages: Set[Message] = messagesWithDuplicatesRemoved.filter(msg => !equivocators.contains(msg.sender))
     for (msg <- honestMessages)
-      output("incoming message", msg.toString)
+      output("incoming-message", msg.toString)
     return honestMessages
   }
 
