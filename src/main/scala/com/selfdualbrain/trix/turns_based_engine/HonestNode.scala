@@ -99,7 +99,7 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
           }
         }
         marblesWithEnoughSupport = counters.indexesWithBalanceAtLeast(simConfig.faultyNodesTolerance + 1).toSet
-        output("marbles-with-enough-support", marblesWithEnoughSupport.mkString(","))
+        output("marbles-with-enough-support", marblesWithEnoughSupport.toSeq.sorted.mkString(","))
         currentConsensusApproximation = new CollectionOfMarbles(currentConsensusApproximation.elements.intersect(marblesWithEnoughSupport))
         output("consensus-approx-update", currentConsensusApproximation.mkString(","))
         return None

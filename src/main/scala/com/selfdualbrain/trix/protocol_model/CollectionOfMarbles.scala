@@ -7,6 +7,7 @@ package com.selfdualbrain.trix.protocol_model
  * Remark: Encapsulated as a class so we can later easily change the implementation.
  */
 class CollectionOfMarbles(val elements: Set[Marble]) extends Iterable[Marble] {
+  private val elementsAfterSorting: Seq[Marble] = elements.toSeq.sorted
 
   override def equals(obj: Any): Boolean = {
     if (obj == null)
@@ -20,7 +21,7 @@ class CollectionOfMarbles(val elements: Set[Marble]) extends Iterable[Marble] {
 
   override def hashCode(): Marble = elements.hashCode()
 
-  override def toString: String = elements.toString
+  override def toString: String = elementsAfterSorting.toString
 
   override def iterator: Iterator[Marble] = elements.iterator
 }
