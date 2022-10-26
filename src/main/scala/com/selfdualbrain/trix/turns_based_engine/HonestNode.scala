@@ -35,11 +35,15 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
         val svp: Option[SafeValueProof] = if (certifiedIteration == -1) {
           val bufferOfMarbles = new mutable.HashSet[Marble]
           val statusMessagesToBeConsidered = latestValidStatusMessages.filter(msg => msg.acceptedSet.elements.subsetOf(marblesWithEnoughSupport)).toSet
-          for (statusMsg <- statusMessagesToBeConsidered)
-            bufferOfMarbles.addAll(statusMsg.acceptedSet.elements)
-          val magmaSet = new CollectionOfMarbles(bufferOfMarbles.toSet)
-          output("leader-magma-set", s"$magmaSet")
-          Some(SafeValueProof.Bootstrap(context.iteration, statusMessagesToBeConsidered, magmaSet))
+          if (statusMessagesToBeConsidered.size < simConfig.faultyNodesTolerance + 1)
+            None
+          else {
+            for (statusMsg <- statusMessagesToBeConsidered)
+              bufferOfMarbles.addAll(statusMsg.acceptedSet.elements)
+            val magmaSet = new CollectionOfMarbles(bufferOfMarbles.toSet)
+            output("leader-magma-set", s"$magmaSet")
+            Some(SafeValueProof.Bootstrap(context.iteration, statusMessagesToBeConsidered, magmaSet))
+          }
         } else {
           if (latestValidStatusMessages.isEmpty) {
             output("leader-svp-fail", "no valid status messages")

@@ -17,10 +17,10 @@ object SandboxCfg extends Config {
   override val averageNumberOfActiveNodes: Double = 5
   override val averageNumberOfLeaders: Double = 1
 
-  override val eligibilityRngSeed: Long = 45
-  override val nodeDecisionsRngSeed: Long = 46
-  override val msgDeliveryRngSeed: Long = 47
-  override val inputSetsGeneratorSeed: Long = 48
+  override val eligibilityRngSeed: Long = 39
+  override val nodeDecisionsRngSeed: Long = 40
+  override val msgDeliveryRngSeed: Long = 41
+  override val inputSetsGeneratorSeed: Long = 42
   override val rngAlgorithm: String = "jdk-std"
 
   override val initialSizeOfInboxBuffer: Int = 10
