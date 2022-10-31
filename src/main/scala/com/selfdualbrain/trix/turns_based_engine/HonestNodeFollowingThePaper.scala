@@ -6,7 +6,10 @@ import com.selfdualbrain.trix.protocol_model._
 
 import scala.collection.mutable
 
-class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: CollectionOfMarbles, out: Option[AbstractTextOutput])
+/**
+ * We follow the math paper on Hare, with one exception: we persistently blacklist all discovered equivocators.
+ */
+class HonestNodeFollowingThePaper(id: NodeId, simConfig: Config, context: NodeContext, inputSet: CollectionOfMarbles, out: Option[AbstractTextOutput])
   extends Node(id, simConfig, context, inputSet, out) {
 
   private val equivocators: mutable.Set[NodeId] = new mutable.HashSet[NodeId]
@@ -32,11 +35,12 @@ class HonestNode(id: NodeId, simConfig: Config, context: NodeContext, inputSet: 
 
       case Round.Proposal =>
         output("leader", s"latest valid status messages: $latestValidStatusMessages")
-        val svp: Option[SafeValueProof] = if (certifiedIteration == -1) {
-          val bufferOfMarbles = new mutable.HashSet[Marble]
-          val statusMessagesToBeConsidered = latestValidStatusMessages.filter(msg => msg.acceptedSet.elements.subsetOf(marblesWithEnoughSupport)).toSet
-          if (statusMessagesToBeConsidered.size < simConfig.faultyNodesTolerance + 1)
-            None
+        val svp: Option[SafeValueProof] =
+          if (certifiedIteration == -1) { //todo: this condition is simply wrong and must be replaced (does not reflect the definition of safe value proof)
+            val bufferOfMarbles = new mutable.HashSet[Marble]
+            val statusMessagesToBeConsidered = latestValidStatusMessages.filter(msg => msg.acceptedSet.elements.subsetOf(marblesWithEnoughSupport)).toSet
+            if (statusMessagesToBeConsidered.size < simConfig.faultyNodesTolerance + 1)
+              None
           else {
             for (statusMsg <- statusMessagesToBeConsidered)
               bufferOfMarbles.addAll(statusMsg.acceptedSet.elements)

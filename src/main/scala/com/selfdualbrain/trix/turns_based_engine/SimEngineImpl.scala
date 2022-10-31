@@ -232,7 +232,7 @@ class SimEngineImpl(
     for (i <- 1 to numberOfHonestNodes) {
       currentNodeId += 1
       val context = new NodeContextImpl(currentNodeId)
-      val node = new HonestNode(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
+      val node = new HonestNodeFollowingGoSpacemesh(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
       val box = NodeBox(node, context)
       result(currentNodeId) = box
     }

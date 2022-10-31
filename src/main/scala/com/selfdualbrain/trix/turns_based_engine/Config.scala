@@ -20,20 +20,23 @@ trait Config {
   def initialSizeOfInboxBuffer: Int
   def isNetworkReliable: Boolean
   def probabilityOfAMessageGettingLost: Double
-  def averageNumberOfActiveNodes: Double //called in go-spacemesh: expected-commity-size (defaults to 800)
+  def averageNumberOfActiveNodes: Double //called in go-spacemesh: expected-committee-size (defaults to 800)
   def averageNumberOfLeaders: Double //called in go-spacemesh: expected-leaders (defaults to 5)
   def manuallyProvidedInputSets: Option[Map[NodeId, CollectionOfMarbles]]
 
   //this is the actual number of faulty nodes in this simulation
   lazy val actualNumberOfFaultyNodes: Int = math.floor(numberOfNodes * maxFractionOfFaultyNodes).toInt
 
-  //this is the number "f" used in the protocol spec
-  //i.e. the maximal number of faulty nodes Hare protocol can tolerate
-  lazy val faultyNodesTolerance: Int = {
+  private lazy val defaultTolerance: Int = {
     val n = averageNumberOfActiveNodes.toInt
     if (n % 2 == 0)
       n / 2 - 1
     else
       n / 2
   }
+
+  //this is the number "f" used in the protocol spec
+  //i.e. the maximal number of faulty nodes Hare protocol can tolerate
+  def faultyNodesTolerance: Int = defaultTolerance
+
 }
