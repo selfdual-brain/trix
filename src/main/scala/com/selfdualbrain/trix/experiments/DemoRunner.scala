@@ -34,16 +34,25 @@ object DemoRunner {
     println(s"number of nodes which terminated: ${engine.numberOfNodesWhichTerminated}")
     println(f"           P2P messages lost [%%]: ${engine.measuredLostMessagesFraction * 100}%2.2f")
     println()
+    println(s"A = cert overrides (up)")
+    println(s"B = cert overrides (down)")
+    println(s"C = cert overrides (non-monotonic)")
+    println(s"D = equivocators discovered")
+    println(s"E = empty proposal rounds")
+    println()
+    println("        \tA\tB\tC\tD\tE")
+    println("----------------------------------")
+
     for (i <- 0 until cfg.numberOfNodes) {
       val hasTerminated: Boolean = engine.reachedTerminationOfProtocol(i)
-      var terminationMarker: String = if (hasTerminated) "[x]" else "[ ]"
-      println(f"$i%03d:$terminationMarker")
       val stats = engine.nodeStats(i)
-      println(s"    cert overrides (up): ${stats.notifyCertificateOverridesWithSetGoingUp}")
-      println(s"    cert overrides (down): ${stats.notifyCertificateOverridesWithSetGoingDown}")
-      println(s"    cert overrides (non-monotonic): ${stats.notifyCertificateOverridesWithNonMonotonicChange}")
-      println(s"    equivocators discovered: ${stats.equivocatorsDiscovered}")
-      println(s"    empty proposal rounds: ${stats.emptyProposalRounds}")
+      var terminationMarker: String = if (hasTerminated) "[x]" else "[ ]"
+      val a: Int = stats.notifyCertificateOverridesWithSetGoingUp
+      val b: Int = stats.notifyCertificateOverridesWithSetGoingDown
+      val c: Int = stats.notifyCertificateOverridesWithNonMonotonicChange
+      val d: Int = stats.equivocatorsDiscovered
+      val e: Int = stats.emptyProposalRounds
+      println(f"$i%03d:$terminationMarker \t$a \t$b \t$c \t$d \t$e")
     }
   }
 
