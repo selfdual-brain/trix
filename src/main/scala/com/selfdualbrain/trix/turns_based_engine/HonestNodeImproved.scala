@@ -8,11 +8,12 @@ import com.selfdualbrain.trix.protocol_model._
 import scala.collection.mutable
 
 /**
- * We follow the math paper on Hare, with 2 exceptions:
+ * We follow the math paper on Hare, with the following exceptions:
  * - we persistently blacklist all discovered equivocators
- * - we build safe value proofs following the processing logic as implemented in go-spacemesh (which is different that the one described in the paper)
+ * - safe value proofs are built following the go-spacemesh logic
+ * - termination is delayed for N iterations, so to avoid the self-lock problem (aka "zombie iterations")
  */
-class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: NodeContext, inputSet: CollectionOfMarbles, out: Option[AbstractTextOutput])
+class HonestNodeImproved(id: NodeId, simConfig: Config, context: NodeContext, inputSet: CollectionOfMarbles, out: Option[AbstractTextOutput])
   extends Node(id, simConfig, context, inputSet, out) {
 
   private val equivocators: mutable.Set[NodeId] = new mutable.HashSet[NodeId]
@@ -35,11 +36,14 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
     var emptyProposalRounds: Int = 0
     override def equivocatorsDiscovered: Int = equivocators.size
   }
+  private var readyToTerminate: Boolean = false
+  private var zombieIteration: Int = 0
 
   override def stats: NodeStats = localStatistics
 
   override def onIterationBegin(iteration: Int): Unit = {
-    //do nothing
+    if (readyToTerminate)
+      zombieIteration += 1
   }
 
   override def executeSendingPhase(): Unit = {
@@ -227,6 +231,24 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
         //update the counter of notify messages
         var consensusResult: Option[CollectionOfMarbles] = None
 
+//        for (msg <- allNotifyMessages) {
+//          val setInQuestion: CollectionOfMarbles = msg.commitCertificate.acceptedSet
+//          notifyMessagesCounter.get(setInQuestion) match {
+//            case None =>
+//              val coll = new mutable.HashSet[NodeId]
+//              coll += msg.sender
+//              notifyMessagesCounter += setInQuestion -> coll
+//
+//            case Some(coll) =>
+//              coll += msg.sender
+//              if (coll.size >= simConfig.faultyNodesTolerance + 1) {
+//                if (consensusResult.isEmpty)
+//                  consensusResult = Some(setInQuestion)
+//              }
+//          }
+//        }
+
+        //updating votes counter
         for (msg <- allNotifyMessages) {
           val setInQuestion: CollectionOfMarbles = msg.commitCertificate.acceptedSet
           notifyMessagesCounter.get(setInQuestion) match {
@@ -237,17 +259,39 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
 
             case Some(coll) =>
               coll += msg.sender
-              if (coll.size >= simConfig.faultyNodesTolerance + 1) {
-                if (consensusResult.isEmpty)
-                  consensusResult = Some(setInQuestion)
-              }
           }
         }
 
-        if (consensusResult.nonEmpty)
-          output("terminating", s"consensus=${consensusResult.get}")
+        output("notify-counters", notifyMessagesCounterPrettyPrint())
 
-        return consensusResult
+        //finding the set of marbles with most votes
+        var topCandidate: CollectionOfMarbles = CollectionOfMarbles.empty
+        var topNumberOfVotes: Int = 0
+        var numberOfTopCandidates: Int = 0
+        for ((candidate,votes) <- notifyMessagesCounter) {
+          if (votes.size > topNumberOfVotes) {
+            topCandidate = candidate
+            topNumberOfVotes = votes.size
+            numberOfTopCandidates = 1
+          } else if (votes.size == topNumberOfVotes) {
+            numberOfTopCandidates += 1
+          }
+        }
+
+        if (topNumberOfVotes > simConfig.faultyNodesTolerance + 1)
+          consensusResult = Some(topCandidate)
+
+        if (consensusResult.nonEmpty) {
+          readyToTerminate = true
+          if (zombieIteration >= simConfig.zombieIterationsLimit) {
+            if (numberOfTopCandidates > 1)
+              throw new RuntimeException(s"Ambiguity during consensus result. Number of top candidates = $numberOfTopCandidates")
+            output("terminating", s"consensus=${consensusResult.get}")
+            return consensusResult
+          }
+          output(s"zombie-phase[$zombieIteration]", s"consensus-candidate: ${consensusResult.get}")
+        }
+        return None
     }
 
   }

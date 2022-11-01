@@ -4,6 +4,7 @@ import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, NodeId}
 
 trait Config {
   def numberOfNodes: Int
+  def honestNodeAlgorithm: String = "improved"
 
   def rngAlgorithm: String
   def eligibilityRngSeed: Long

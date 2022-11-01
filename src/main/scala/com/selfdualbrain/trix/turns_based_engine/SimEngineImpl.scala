@@ -248,7 +248,15 @@ class SimEngineImpl(
     for (i <- 1 to numberOfHonestNodes) {
       currentNodeId += 1
       val context = new NodeContextImpl(currentNodeId)
-      val node = new HonestNodeFollowingGoSpacemesh(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
+      val node = config.honestNodeAlgorithm match {
+        case "original" =>
+          new HonestNodeFollowingGoSpacemesh(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
+        case "improved" =>
+          new HonestNodeImproved(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
+        case other =>
+          throw new RuntimeException(s"unsupported hones node algorithm mnemonic found in config: $other")
+      }
+
       val box = NodeBox(node, context)
       result(currentNodeId) = box
     }
