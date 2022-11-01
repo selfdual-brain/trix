@@ -5,14 +5,17 @@ import com.selfdualbrain.trix.turns_based_engine.{Config, InputSetsGenerator, Ra
 
 object SearchForBadCases {
   val HARE_ITERATIONS: Int = 20
-  val TEST_CASES_TO_CHECK: Int = 200
+  val TEST_CASES_TO_CHECK: Int = 2000
 
   def main(args: Array[String]): Unit = {
 
     var smallestNumberOfTerminatorsWinner: Int = -1
     var smallestNumberOfTerminators: Int = Int.MaxValue
+    var smallestNumberOfTerminatorsLMFraction: Double = 0
+
     var biggestNumberOfRoundsWithTerminationWinner: Int = -1
     var biggestNumberOfRoundsWithTerminatingNodes: Int = 0
+    var biggestNumberOfRoundsLMFraction: Double = 0
 
     for (i <- 0 until TEST_CASES_TO_CHECK ) {
       println(s"running simulation $i")
@@ -32,11 +35,13 @@ object SearchForBadCases {
       if (engine.numberOfNodesWhichTerminated < smallestNumberOfTerminators) {
         smallestNumberOfTerminatorsWinner = i
         smallestNumberOfTerminators = engine.numberOfNodesWhichTerminated
+        smallestNumberOfTerminatorsLMFraction = engine.measuredLostMessagesFraction
       }
 
       if (engine.numberOfRoundsWithTermination > biggestNumberOfRoundsWithTerminatingNodes) {
         biggestNumberOfRoundsWithTerminationWinner = i
         biggestNumberOfRoundsWithTerminatingNodes = engine.numberOfRoundsWithTermination
+        biggestNumberOfRoundsLMFraction = engine.measuredLostMessagesFraction
       }
     }
 
@@ -45,9 +50,11 @@ object SearchForBadCases {
     println(s"worst case in category 'smallest number of terminators'")
     println(s"    number of terminators: $smallestNumberOfTerminators")
     println(s"    random seed: $smallestNumberOfTerminatorsWinner")
+    println(f"    messages lost [%%]: ${smallestNumberOfTerminatorsLMFraction * 100}%2.2f")
     println(s"worst case in category 'termination spread across many iterations'")
     println(s"    number of rounds with termination: $biggestNumberOfRoundsWithTerminatingNodes")
     println(s"    random seed: $biggestNumberOfRoundsWithTerminationWinner")
+    println(f"    messages lost [%%]: ${biggestNumberOfRoundsLMFraction * 100}%2.2f")
   }
 
   class TestCfg(seed: Long) extends Config {
@@ -58,7 +65,7 @@ object SearchForBadCases {
     override val marblesRangeForHonestNodes: Int = 20
 
     override val isNetworkReliable: Boolean = false
-    override val probabilityOfAMessageGettingLost: Double = 0.3
+    override val probabilityOfAMessageGettingLost: Double = 0.1
 
     override val numberOfNodes: Int = 10
     override val averageNumberOfActiveNodes: Double = 5

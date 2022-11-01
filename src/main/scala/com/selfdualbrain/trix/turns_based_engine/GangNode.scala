@@ -9,4 +9,6 @@ class GangNode(id: NodeId, simConfig: Config, nodeContext: NodeContext, inputSet
   override def executeSendingPhase(): Unit = ???
 
   override def executeCalculationPhase(): Option[CollectionOfMarbles] = ???
+
+  override def stats: NodeStats = NodeStats.EmptyMock
 }

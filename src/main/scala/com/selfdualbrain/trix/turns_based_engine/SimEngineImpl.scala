@@ -21,6 +21,8 @@ class SimEngineImpl(
   private var currentRoundProcess: Option[SingleRoundProcess] = None
   private var terminatedNodesCounter: Int = 0
   private var counterOfRoundsWithTerminatingNodes: Int = 0
+  private var allInterNodeMessagesCounter: Int = 0
+  private var lostMessagesCounter: Int = 0
 
   /*                                                 PUBLIC                                             */
 
@@ -68,6 +70,10 @@ class SimEngineImpl(
 
   override def numberOfRoundsWithTermination: NodeId = counterOfRoundsWithTerminatingNodes
 
+  override def measuredLostMessagesFraction: Double = lostMessagesCounter.toDouble / allInterNodeMessagesCounter
+
+  override def nodeStats(nodeId: NodeId): NodeStats = nodeBoxes(nodeId).node.stats
+
   /*                                                 NODE CONTEXT                                              */
 
 
@@ -99,6 +105,7 @@ class SimEngineImpl(
 
     override def inbox(): Iterable[Message] = {
       val messagesCollection = currentRoundProcess.get.getAllMessagesDeliveredTo(nodeId)
+      allInterNodeMessagesCounter += messagesCollection.count(msg => msg.sender != nodeId)
       if (config.isNetworkReliable)
         return messagesCollection
       else
@@ -109,6 +116,8 @@ class SimEngineImpl(
             else
               msgDeliveryRng.nextDouble() < config.probabilityOfAMessageGettingLost
           }
+          if (shouldBeLost)
+            lostMessagesCounter += 1
           !shouldBeLost
         })
     }

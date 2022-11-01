@@ -15,4 +15,5 @@ class DeafNode(id: NodeId, simConfig: Config, nodeContext: NodeContext, inputSet
     return None
   }
 
+  override def stats: NodeStats = NodeStats.EmptyMock
 }

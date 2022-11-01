@@ -17,4 +17,8 @@ abstract class Node(val id: NodeId, simConfig: Config, context: NodeContext, val
     if (out.isDefined)
       out.get.print(s"$id:$code:$body")
   }
+
+  protected def isOutputEnabled: Boolean = out.isDefined
+
+  def stats: NodeStats
 }

@@ -10,4 +10,6 @@ trait SimEngine {
   def reachedTerminationOfProtocol(nodeId: NodeId): Boolean
   def currentRound: Option[Round]
   def currentIteration: Int
+  def measuredLostMessagesFraction: Double
+  def nodeStats(nodeId: Int): NodeStats
 }

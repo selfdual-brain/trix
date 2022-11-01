@@ -32,11 +32,18 @@ object DemoRunner {
 
     println("---------------------------- final stats ----------------------------")
     println(s"number of nodes which terminated: ${engine.numberOfNodesWhichTerminated}")
+    println(f"           P2P messages lost [%%]: ${engine.measuredLostMessagesFraction * 100}%2.2f")
     println()
     for (i <- 0 until cfg.numberOfNodes) {
       val hasTerminated: Boolean = engine.reachedTerminationOfProtocol(i)
       var terminationMarker: String = if (hasTerminated) "[x]" else "[ ]"
       println(f"$i%03d:$terminationMarker")
+      val stats = engine.nodeStats(i)
+      println(s"    cert overrides (up): ${stats.notifyCertificateOverridesWithSetGoingUp}")
+      println(s"    cert overrides (down): ${stats.notifyCertificateOverridesWithSetGoingDown}")
+      println(s"    cert overrides (non-monotonic): ${stats.notifyCertificateOverridesWithNonMonotonicChange}")
+      println(s"    equivocators discovered: ${stats.equivocatorsDiscovered}")
+      println(s"    empty proposal rounds: ${stats.emptyProposalRounds}")
     }
   }
 

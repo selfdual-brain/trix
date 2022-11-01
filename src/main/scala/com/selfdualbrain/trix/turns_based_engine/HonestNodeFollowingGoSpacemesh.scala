@@ -1,6 +1,6 @@
 package com.selfdualbrain.trix.turns_based_engine
 
-import com.selfdualbrain.continuum.data_structures.{FastIntMap, FastIntMapWithAutoinit}
+import com.selfdualbrain.continuum.data_structures.FastIntMap
 import com.selfdualbrain.continuum.textout.AbstractTextOutput
 import com.selfdualbrain.trix.data_structures.IndexedBatteryOfIntCounters
 import com.selfdualbrain.trix.protocol_model._
@@ -24,8 +24,17 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
   private var latestValidStatusMessages: Set[Message.Status] = Set.empty
   private var lastLocallyFormedCommitCertificate: Option[CommitCertificate] = None
   private val notifyMessagesCounter = new mutable.HashMap[CollectionOfMarbles, mutable.HashSet[NodeId]]
-  //iteration ----> map[set ---> certificate]
+  //iteration ----> map[collectionOfMarbles ---> certificate]
   private val certificates = new FastIntMap[mutable.HashMap[CollectionOfMarbles, CommitCertificate]](100)
+  private val localStatistics = new NodeStats {
+    var notifyCertificateOverridesWithSetGoingUp: Int = 0
+    var notifyCertificateOverridesWithSetGoingDown: Int = 0
+    var notifyCertificateOverridesWithNonMonotonicChange: Int = 0
+    override def equivocatorsDiscovered: Int = equivocators.size
+    var emptyProposalRounds: Int = 0
+  }
+
+  override def stats: NodeStats = localStatistics
 
   override def executeSendingPhase(): Unit = {
 
@@ -40,30 +49,30 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
 
       case Round.Proposal =>
         output("leader", s"latest valid status messages: $latestValidStatusMessages")
-        val statusMessagesToBeConsidered = latestValidStatusMessages.filter(msg => isStatusMessageValid(msg))
+        val justifiedStatusMessages = latestValidStatusMessages.filter(msg => isStatusMessageJustified(msg))
 
         val svp: Option[SafeValueProof] =
-          if (statusMessagesToBeConsidered.size < simConfig.faultyNodesTolerance + 1) {
-            output("leader-svp-fail", s"number of valid status messages less than f+1: ${statusMessagesToBeConsidered.size}")
+          if (justifiedStatusMessages.size < simConfig.faultyNodesTolerance + 1) {
+            output("leader-svp-fail", s"number of valid status messages less than f+1: ${justifiedStatusMessages.size}")
             None
           } else {
-            val maxCertifiedIteration: Int = statusMessagesToBeConsidered.map(msg => msg.certifiedIteration).max
+            val maxCertifiedIteration: Int = justifiedStatusMessages.map(msg => msg.certifiedIteration).max
             if (maxCertifiedIteration == -1) {
               val bufferOfMarbles = new mutable.HashSet[Marble]
-              for (statusMsg <- statusMessagesToBeConsidered)
+              for (statusMsg <- justifiedStatusMessages)
                 bufferOfMarbles.addAll(statusMsg.acceptedSet.elements)
               val magmaSet = new CollectionOfMarbles(bufferOfMarbles.toSet)
               output("leader-magma-set", s"$magmaSet")
-              Some(SafeValueProof.Bootstrap(context.iteration, statusMessagesToBeConsidered, magmaSet))
+              Some(SafeValueProof.Bootstrap(context.iteration, justifiedStatusMessages, magmaSet))
             } else {
-              val messagesWithMaxCertifiedIteration = statusMessagesToBeConsidered.filter(msg => msg.certifiedIteration == maxCertifiedIteration)
+              val messagesWithMaxCertifiedIteration = justifiedStatusMessages.filter(msg => msg.certifiedIteration == maxCertifiedIteration)
               val candidateSets = messagesWithMaxCertifiedIteration.map(msg => msg.acceptedSet)
               if (candidateSets.size > 1) {
                 output("svp-candidate-sets", s"$candidateSets")
                 output("messages-with-max-ci", s"$messagesWithMaxCertifiedIteration")
                 throw new RuntimeException(s"Could not form SVP: max-certified-iteration=$maxCertifiedIteration candidateSets.size = ${candidateSets.size}")
               }
-              Some(SafeValueProof.Proper(context.iteration, statusMessagesToBeConsidered, messagesWithMaxCertifiedIteration.head))
+              Some(SafeValueProof.Proper(context.iteration, justifiedStatusMessages, messagesWithMaxCertifiedIteration.head))
             }
           }
 
@@ -104,7 +113,6 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
       case Round.Status =>
         val allStatusMessages: Iterable[Message.Status] = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.Status]]
         latestValidStatusMessages = allStatusMessages.toSet
-//        latestValidStatusMessages = allStatusMessages.filter(msg => msg.acceptedSet.elements.subsetOf(marblesWithEnoughSupport)).toSet
         return None
 
       case Round.Proposal =>
@@ -126,6 +134,7 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
           commitCandidate = Some(bestMsgSoFar.safeValueProof.safeValue)
         } else {
           output("proposal-is-missing", "")
+          localStatistics.emptyProposalRounds += 1
           commitCandidate = None
         }
 
@@ -151,6 +160,9 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
         return None
 
       case Round.Notify =>
+        //todo: we can optimize the logic of Notify round by taking into account
+        //todo: also a locally-formed commit certificate (if present)
+        //todo: this could be accomplished by adding do this collection yet another 'notify' message coming from myself
         val allNotifyMessages = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.Notify]]
 
         //update cached certificates
@@ -183,8 +195,26 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
         //we update current consensus approximation once we get a notify message with a better certificate than last we knew about
         if (notifyMessagesWithGreaterCertifiedIteration.nonEmpty) {
           val goodNotifyMsg = notifyMessagesWithGreaterCertifiedIteration.head
+          val oldSet: Set[Int] = currentConsensusApproximation.elements
+          val newSet: Set[Int] = goodNotifyMsg.commitCertificate.acceptedSet.elements
+          val overrideCase = NotifyRoundOverrideCase.recognize(oldSet, newSet)
+          overrideCase match {
+            case NotifyRoundOverrideCase.NoChange => //ignore
+            case NotifyRoundOverrideCase.GoingUp => localStatistics.notifyCertificateOverridesWithSetGoingUp += 1
+            case NotifyRoundOverrideCase.GoingDown => localStatistics.notifyCertificateOverridesWithSetGoingDown += 1
+            case NotifyRoundOverrideCase.NonMonotonic => localStatistics.notifyCertificateOverridesWithNonMonotonicChange += 1
+          }
+          if (certifiedIteration >= 0 && this.isOutputEnabled) {
+            val iterUpdateDesc = s"$certifiedIteration->${goodNotifyMsg.commitCertificate.iteration}"
+            val differenceDesc: String = overrideCase match {
+              case NotifyRoundOverrideCase.NoChange => "no change"
+              case NotifyRoundOverrideCase.GoingUp => s"added ${newSet diff oldSet}"
+              case NotifyRoundOverrideCase.GoingDown => s"removed ${oldSet diff newSet}"
+              case NotifyRoundOverrideCase.NonMonotonic => s"added ${newSet diff oldSet} removed ${oldSet diff newSet}"
+            }
+            output("better-commit-certificate", s"certified iteration update: $iterUpdateDesc difference: $differenceDesc")
+          }
           currentConsensusApproximation = goodNotifyMsg.commitCertificate.acceptedSet
-          output("consensus-approx-update", currentConsensusApproximation.mkString(","))
           certifiedIteration = goodNotifyMsg.commitCertificate.iteration
         }
 
@@ -254,7 +284,7 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
     }
   }
 
-  private def isStatusMessageValid(msg: Message.Status): Boolean =
+  private def isStatusMessageJustified(msg: Message.Status): Boolean =
     if (msg.certifiedIteration == -1) {
       msg.acceptedSet.elements.subsetOf(marblesWithEnoughSupport)
     } else {

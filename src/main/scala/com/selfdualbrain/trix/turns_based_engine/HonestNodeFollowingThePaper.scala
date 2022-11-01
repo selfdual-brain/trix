@@ -22,6 +22,8 @@ class HonestNodeFollowingThePaper(id: NodeId, simConfig: Config, context: NodeCo
   private var lastLocallyFormedCommitCertificate: Option[CommitCertificate] = None
   private val notifyMessagesCounter = new mutable.HashMap[CollectionOfMarbles, mutable.HashSet[NodeId]]
 
+  override def stats: NodeStats = NodeStats.EmptyMock
+
   override def executeSendingPhase(): Unit = {
 
     context.currentRound match {
@@ -211,6 +213,7 @@ class HonestNodeFollowingThePaper(id: NodeId, simConfig: Config, context: NodeCo
   }
 
   /*                              PRIVATE                          */
+
 
   /**
    * We filter out messages which are equivocations (i.e. same type of message in the same round from the same sender

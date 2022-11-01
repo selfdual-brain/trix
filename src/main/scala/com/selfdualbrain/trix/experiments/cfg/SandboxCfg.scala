@@ -7,7 +7,7 @@ object SandboxCfg extends Config {
   override val maxFractionOfFaultyNodes: Double = 0
   override val fractionOfDeafNodesAmongFaulty: Double = 0
 
-  override val inputSetSizeRange: (Int, Int) = (15, 20)
+  override val inputSetSizeRange: (Int, Int) = (12, 20)
   override val marblesRangeForHonestNodes: Int = 20
 
   override val isNetworkReliable: Boolean = false
@@ -17,10 +17,10 @@ object SandboxCfg extends Config {
   override val averageNumberOfActiveNodes: Double = 5
   override val averageNumberOfLeaders: Double = 1
 
-  override val eligibilityRngSeed: Long = 39
-  override val nodeDecisionsRngSeed: Long = 40
-  override val msgDeliveryRngSeed: Long = 41
-  override val inputSetsGeneratorSeed: Long = 42
+  override val eligibilityRngSeed: Long = 424
+  override val nodeDecisionsRngSeed: Long = 425
+  override val msgDeliveryRngSeed: Long = 426
+  override val inputSetsGeneratorSeed: Long = 427
   override val rngAlgorithm: String = "jdk-std"
 
   override val initialSizeOfInboxBuffer: Int = 10
