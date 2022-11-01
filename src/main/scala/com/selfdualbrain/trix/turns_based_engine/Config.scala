@@ -38,5 +38,5 @@ trait Config {
   //this is the number "f" used in the protocol spec
   //i.e. the maximal number of faulty nodes Hare protocol can tolerate
   def faultyNodesTolerance: Int = defaultTolerance
-
+  def zombieIterationsLimit: Int = 0
 }

@@ -27,7 +27,7 @@ object DemoRunner {
     val inputSetsGenerator: InputSetsGenerator = new InputSetsGenerator(cfg, inputSetsRng)
     val engine = new SimEngineImpl(cfg, eligibilityRng, msgDeliveryRng, nodeDecisionsRng, inputSetsGenerator, output)
 
-    while (engine.numberOfNodesWhichTerminated < cfg.numberOfNodes && engine.currentIteration < 20)
+    while (engine.numberOfNodesWhichTerminated < cfg.numberOfNodes && engine.currentIteration < 50)
       engine.playNextRound()
 
     println("---------------------------- final stats ----------------------------")

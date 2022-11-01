@@ -24,6 +24,10 @@ class HonestNodeFollowingThePaper(id: NodeId, simConfig: Config, context: NodeCo
 
   override def stats: NodeStats = NodeStats.EmptyMock
 
+  override def onIterationBegin(iteration: Int): Unit = {
+    //do nothing
+  }
+
   override def executeSendingPhase(): Unit = {
 
     context.currentRound match {

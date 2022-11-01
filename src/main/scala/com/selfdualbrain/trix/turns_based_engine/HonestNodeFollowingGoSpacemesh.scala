@@ -26,15 +26,24 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
   private val notifyMessagesCounter = new mutable.HashMap[CollectionOfMarbles, mutable.HashSet[NodeId]]
   //iteration ----> map[collectionOfMarbles ---> certificate]
   private val certificates = new FastIntMap[mutable.HashMap[CollectionOfMarbles, CommitCertificate]](100)
-  private val localStatistics = new NodeStats {
+  private val localStatistics = new LocalNodeStats
+
+  private class LocalNodeStats extends NodeStats {
     var notifyCertificateOverridesWithSetGoingUp: Int = 0
     var notifyCertificateOverridesWithSetGoingDown: Int = 0
     var notifyCertificateOverridesWithNonMonotonicChange: Int = 0
-    override def equivocatorsDiscovered: Int = equivocators.size
     var emptyProposalRounds: Int = 0
+    override def equivocatorsDiscovered: Int = equivocators.size
   }
+  private var readyToTerminate: Boolean = false
+  private var zombieIteration: Int = 0
 
   override def stats: NodeStats = localStatistics
+
+  override def onIterationBegin(iteration: Int): Unit = {
+    if (readyToTerminate)
+      zombieIteration += 1
+  }
 
   override def executeSendingPhase(): Unit = {
 
@@ -221,6 +230,24 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
         //update the counter of notify messages
         var consensusResult: Option[CollectionOfMarbles] = None
 
+//        for (msg <- allNotifyMessages) {
+//          val setInQuestion: CollectionOfMarbles = msg.commitCertificate.acceptedSet
+//          notifyMessagesCounter.get(setInQuestion) match {
+//            case None =>
+//              val coll = new mutable.HashSet[NodeId]
+//              coll += msg.sender
+//              notifyMessagesCounter += setInQuestion -> coll
+//
+//            case Some(coll) =>
+//              coll += msg.sender
+//              if (coll.size >= simConfig.faultyNodesTolerance + 1) {
+//                if (consensusResult.isEmpty)
+//                  consensusResult = Some(setInQuestion)
+//              }
+//          }
+//        }
+
+        //updating votes counter
         for (msg <- allNotifyMessages) {
           val setInQuestion: CollectionOfMarbles = msg.commitCertificate.acceptedSet
           notifyMessagesCounter.get(setInQuestion) match {
@@ -231,16 +258,39 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
 
             case Some(coll) =>
               coll += msg.sender
-              if (coll.size >= simConfig.faultyNodesTolerance + 1) {
-                if (consensusResult.isEmpty)
-                  consensusResult = Some(setInQuestion)
-              }
           }
         }
+
         output("notify-counters", notifyMessagesCounterPrettyPrint())
-        if (consensusResult.nonEmpty)
-          output("terminating", s"consensus=${consensusResult.get}")
-        return consensusResult
+
+        //finding the set of marbles with most votes
+        var topCandidate: CollectionOfMarbles = CollectionOfMarbles.empty
+        var topNumberOfVotes: Int = 0
+        var numberOfTopCandidates: Int = 0
+        for ((candidate,votes) <- notifyMessagesCounter) {
+          if (votes.size > topNumberOfVotes) {
+            topCandidate = candidate
+            topNumberOfVotes = votes.size
+            numberOfTopCandidates = 1
+          } else if (votes.size == topNumberOfVotes) {
+            numberOfTopCandidates += 1
+          }
+        }
+
+        if (topNumberOfVotes > simConfig.faultyNodesTolerance + 1)
+          consensusResult = Some(topCandidate)
+
+        if (consensusResult.nonEmpty) {
+          readyToTerminate = true
+          if (zombieIteration >= simConfig.zombieIterationsLimit) {
+            if (numberOfTopCandidates > 1)
+              throw new RuntimeException(s"Ambiguity during consensus result. Number of top candidates = $numberOfTopCandidates")
+            output("terminating", s"consensus=${consensusResult.get}")
+            return consensusResult
+          }
+          output(s"zombie-phase[$zombieIteration]", s"consensus-candidate: ${consensusResult.get}")
+        }
+        return None
     }
 
   }

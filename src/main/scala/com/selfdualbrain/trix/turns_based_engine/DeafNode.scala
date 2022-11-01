@@ -6,6 +6,10 @@ import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, NodeId}
 class DeafNode(id: NodeId, simConfig: Config, nodeContext: NodeContext, inputSet: CollectionOfMarbles, out: Option[AbstractTextOutput])
   extends Node(id, simConfig, nodeContext, inputSet, out) {
 
+  override def onIterationBegin(iteration: Int): Unit = {
+    //do nothing
+  }
+
   override def executeSendingPhase(): Unit = {
     //do nothing
   }

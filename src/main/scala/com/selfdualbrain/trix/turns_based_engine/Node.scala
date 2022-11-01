@@ -8,6 +8,8 @@ import scala.collection.mutable
 abstract class Node(val id: NodeId, simConfig: Config, context: NodeContext, val inputSet: CollectionOfMarbles, out: Option[AbstractTextOutput]) {
   override def toString: String = s"node-$id"
 
+  def onIterationBegin(iteration: Int): Unit
+
   def executeSendingPhase(): Unit
 
   //returns Some(consensusResult) if protocol termination was achieved

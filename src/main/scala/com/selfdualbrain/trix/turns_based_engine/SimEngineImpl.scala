@@ -183,6 +183,13 @@ class SimEngineImpl(
       val electedCollectionOfNodes: Iterable[NodeId] = (0 until config.numberOfNodes).filter(nodeId => roleDistributionOracle.isNodeActive(nodeId))
       output(s"########## iteration=$iteration round=$round terminated-nodes=$terminatedNodesCounter elected-nodes=$electedCollectionOfNodes terminated-list=[${nodesWhichTerminated.mkString(",")}]")
 
+      if (round == Round.Preround || {iteration >= 1 && round == Round.Status})
+        for (i <- 0 until config.numberOfNodes) {
+          val box = nodeBoxes(i)
+          if (!box.context.reachedTerminationOfProtocol)
+            box.node.onIterationBegin(iteration)
+        }
+
       for (i <- SimEngineImpl.this.nodesWhichTerminated)
         output(s"//node $i has terminated with result: [${nodeBoxes(i).context.consensusResult.get.mkString(",")}]")
 
@@ -199,7 +206,7 @@ class SimEngineImpl(
       for (i <- 0 until config.numberOfNodes) {
         val box = nodeBoxes(i)
         if (! box.context.reachedTerminationOfProtocol) {
-          val consensusResult = nodeBoxes(i).node.executeCalculationPhase()
+          val consensusResult = box.node.executeCalculationPhase()
           if (consensusResult.isDefined)
             box.context.signalProtocolTermination(consensusResult.get)
         }
