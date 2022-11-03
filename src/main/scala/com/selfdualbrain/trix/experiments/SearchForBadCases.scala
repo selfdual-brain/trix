@@ -4,7 +4,7 @@ import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, NodeId}
 import com.selfdualbrain.trix.turns_based_engine.{Config, InputSetsGenerator, RandomNumberGenerator, RngFactory, SimEngineImpl}
 
 object SearchForBadCases {
-  val HARE_ITERATIONS: Int = 20
+  val HARE_ITERATIONS: Int = 30
   val TEST_CASES_TO_CHECK: Int = 2000
 
   def main(args: Array[String]): Unit = {
@@ -65,7 +65,7 @@ object SearchForBadCases {
     override val marblesRangeForHonestNodes: Int = 20
 
     override val isNetworkReliable: Boolean = false
-    override val probabilityOfAMessageGettingLost: Double = 0.1
+    override val probabilityOfAMessageGettingLost: Double = 0.2
 
     override val numberOfNodes: Int = 10
     override val averageNumberOfActiveNodes: Double = 5
@@ -81,6 +81,8 @@ object SearchForBadCases {
     override val manuallyProvidedInputSets: Option[Map[NodeId, CollectionOfMarbles]] = None
 
     override val enforceFixedNumberOfActiveNodes: Boolean = true
+
+    override def zombieIterationsLimit: NodeId = 5
   }
 
 

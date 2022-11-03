@@ -1,6 +1,6 @@
 package com.selfdualbrain.trix.experiments
 
-import com.selfdualbrain.continuum.textout.TextOutput
+import com.selfdualbrain.continuum.textout.{AbstractTextOutput, TextOutput}
 import com.selfdualbrain.trix.experiments.cfg.{MediumBlockchainRealistic, SandboxCfg, SmallBlockchainWithPerfectNetworkCfg, SmallBlockchainWithPoorNetworkCfg}
 import com.selfdualbrain.trix.turns_based_engine.{Config, InputSetsGenerator, RandomNumberGenerator, RngFactory, SimEngineImpl}
 
@@ -19,7 +19,8 @@ object DemoRunner {
       case 3 => SmallBlockchainWithPoorNetworkCfg
     }
 
-    val output = Some(TextOutput.overConsole(4, ' '))
+//    val output: Option[AbstractTextOutput] = Some(TextOutput.overConsole(4, ' '))
+    val output: Option[AbstractTextOutput] = None
     val eligibilityRng: RandomNumberGenerator = RngFactory.getInstance(cfg.rngAlgorithm, cfg.eligibilityRngSeed)
     val msgDeliveryRng: RandomNumberGenerator = RngFactory.getInstance(cfg.rngAlgorithm, cfg.msgDeliveryRngSeed)
     val nodeDecisionsRng: RandomNumberGenerator = RngFactory.getInstance(cfg.rngAlgorithm, cfg.nodeDecisionsRngSeed)
@@ -46,13 +47,14 @@ object DemoRunner {
     for (i <- 0 until cfg.numberOfNodes) {
       val hasTerminated: Boolean = engine.reachedTerminationOfProtocol(i)
       val stats = engine.nodeStats(i)
-      var terminationMarker: String = if (hasTerminated) "[x]" else "[ ]"
+      val terminationMarker: String = if (hasTerminated) "[x]" else "[ ]"
+      val consensusResult = engine.consensusResult(i)
       val a: Int = stats.notifyCertificateOverridesWithSetGoingUp
       val b: Int = stats.notifyCertificateOverridesWithSetGoingDown
       val c: Int = stats.notifyCertificateOverridesWithNonMonotonicChange
       val d: Int = stats.equivocatorsDiscovered
       val e: Int = stats.emptyProposalRounds
-      println(f"$i%03d:$terminationMarker \t$a \t$b \t$c \t$d \t$e")
+      println(f"$i%03d:$terminationMarker \t$a \t$b \t$c \t$d \t$e \t$consensusResult")
     }
   }
 

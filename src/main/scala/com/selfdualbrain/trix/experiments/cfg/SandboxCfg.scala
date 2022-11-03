@@ -27,4 +27,5 @@ object SandboxCfg extends Config {
   override val manuallyProvidedInputSets: Option[Map[NodeId, CollectionOfMarbles]] = None
   override val enforceFixedNumberOfActiveNodes: Boolean = true
   override val zombieIterationsLimit: NodeId = 5
+  override val ignoreSecondNotifyFromTheSameSender: Boolean = true
 }

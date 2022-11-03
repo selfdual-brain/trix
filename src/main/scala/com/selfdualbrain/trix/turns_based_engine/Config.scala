@@ -40,4 +40,5 @@ trait Config {
   //i.e. the maximal number of faulty nodes Hare protocol can tolerate
   def faultyNodesTolerance: Int = defaultTolerance
   def zombieIterationsLimit: Int = 0
+  def ignoreSecondNotifyFromTheSameSender: Boolean = false
 }

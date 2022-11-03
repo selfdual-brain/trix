@@ -65,7 +65,12 @@ class SimEngineImpl(
 
   override def reachedTerminationOfProtocol(nodeId: NodeId): Boolean = {
     require (nodeId >= 0 && nodeId < config.numberOfNodes, s"node id=$nodeId outside range of this engine: 0..${config.numberOfNodes-1}")
-    nodeBoxes(nodeId).context.reachedTerminationOfProtocol
+    return nodeBoxes(nodeId).context.reachedTerminationOfProtocol
+  }
+
+  override def consensusResult(nodeId: NodeId): Option[CollectionOfMarbles] = {
+    require (nodeId >= 0 && nodeId < config.numberOfNodes, s"node id=$nodeId outside range of this engine: 0..${config.numberOfNodes-1}")
+    return nodeBoxes(nodeId).context.consensusResult
   }
 
   override def numberOfRoundsWithTermination: NodeId = counterOfRoundsWithTerminatingNodes
