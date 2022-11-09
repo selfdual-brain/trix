@@ -24,6 +24,8 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
   private var latestValidStatusMessages: Set[Message.Status] = Set.empty
   private var lastLocallyFormedCommitCertificate: Option[CommitCertificate] = None
   private val notifyMessagesCounter = new mutable.HashMap[CollectionOfMarbles, mutable.HashSet[NodeId]]
+  private val notifyMsgSenders = new mutable.HashSet[NodeId](simConfig.averageNumberOfActiveNodes.toInt * 10, 0.75)
+
   //iteration ----> map[collectionOfMarbles ---> certificate]
   private val certificates = new FastIntMap[mutable.HashMap[CollectionOfMarbles, CommitCertificate]](100)
   private val localStatistics = new LocalNodeStats
@@ -170,9 +172,10 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
         //todo: also a locally-formed commit certificate (if present)
         //todo: this could be accomplished by adding do this collection yet another 'notify' message coming from myself
         val allNotifyMessages = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.Notify]]
+        val effectiveNotifyMessages = filterOutNotifyOverrides(allNotifyMessages)
 
         //update cached certificates
-        for (msg <- allNotifyMessages) {
+        for (msg <- effectiveNotifyMessages) {
           val certificate = msg.commitCertificate
           val map: mutable.HashMap[CollectionOfMarbles, CommitCertificate] = certificates.get(certificate.iteration) match {
             case Some(m) => m
@@ -186,7 +189,7 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
             map += certificate.acceptedSet -> certificate
         }
 
-        val notifyMessagesWithGreaterCertifiedIteration = allNotifyMessages.filter(msg => msg.commitCertificate.iteration >= certifiedIteration)
+        val notifyMessagesWithGreaterCertifiedIteration = effectiveNotifyMessages.filter(msg => msg.commitCertificate.iteration >= certifiedIteration)
 
         //checking if the "wild case" of distinct votes can ever happen
         //the math paper is not clear on what to do with this wild case
@@ -227,7 +230,8 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
         //update the counter of notify messages
         var consensusResult: Option[CollectionOfMarbles] = None
 
-        for (msg <- allNotifyMessages) {
+        for (msg <- effectiveNotifyMessages) {
+          notifyMsgSenders += msg.sender
           val setInQuestion: CollectionOfMarbles = msg.commitCertificate.acceptedSet
           notifyMessagesCounter.get(setInQuestion) match {
             case None =>
@@ -242,6 +246,10 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
                   consensusResult = Some(setInQuestion)
               }
           }
+        }
+
+        if (isOutputEnabled) {
+          output("notify-messages-counter", notifyMessagesCounterPrettyPrint())
         }
 
         if (consensusResult.nonEmpty)
@@ -301,5 +309,12 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
         case Some(m) => m.contains(msg.acceptedSet)
       }
     }
+
+  private def filterOutNotifyOverrides(messages: Iterable[Message.Notify]): Iterable[Message.Notify] = {
+    if (simConfig.ignoreSecondNotifyFromTheSameSender)
+      messages.filter(msg => ! notifyMsgSenders.contains(msg.sender))
+    else
+      messages
+  }
 
 }

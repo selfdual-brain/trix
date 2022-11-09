@@ -13,6 +13,7 @@ libraryDependencies ++= {
     "com.typesafe" % "config" % "1.3.4",
     "org.scala-lang.modules" %% "scala-collection-contrib" % "0.2.1",
     "org.scalatest" %% "scalatest" % "3.2.3" % Test,
-    "org.apache.commons" % "commons-math3" % "3.6.1"
+    "org.apache.commons" % "commons-math3" % "3.6.1",
+    "org.scalanlp" %% "breeze" % "2.1.0"
   )
 }

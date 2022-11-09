@@ -19,11 +19,15 @@ class CollectionOfMarbles(val elements: Set[Marble]) extends Iterable[Marble] {
     }
   }
 
-  override def hashCode(): Marble = elements.hashCode()
+  override def hashCode(): Marble = elementsAfterSorting.hashCode()
 
   override def toString: String = elementsAfterSorting.toString
 
-  override def iterator: Iterator[Marble] = elements.iterator
+  override def iterator: Iterator[Marble] = elementsAfterSorting.iterator
+
+  override def isEmpty: Boolean = elements.isEmpty
+
+
 }
 object CollectionOfMarbles {
   val empty = new CollectionOfMarbles(Set.empty[Marble])

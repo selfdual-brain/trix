@@ -1,11 +1,13 @@
 package com.selfdualbrain.trix.experiments
 
 import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, NodeId}
-import com.selfdualbrain.trix.turns_based_engine.{Config, InputSetsGenerator, RandomNumberGenerator, RngFactory, SimEngineImpl}
+import com.selfdualbrain.trix.turns_based_engine.{Config, InputSetsGenerator, RandomNumberGenerator, RngFactory, SimEngine, SimEngineImpl}
 
 object SearchForBadCases {
   val HARE_ITERATIONS: Int = 30
-  val TEST_CASES_TO_CHECK: Int = 2000
+  val TEST_CASES_TO_CHECK: Int = 1000
+
+  val cfgTemplate = new TestCfg(0)
 
   def main(args: Array[String]): Unit = {
 
@@ -17,8 +19,17 @@ object SearchForBadCases {
     var biggestNumberOfRoundsWithTerminatingNodes: Int = 0
     var biggestNumberOfRoundsLMFraction: Double = 0
 
+    var totalNumberOfTerminators: Int = 0
+    var lessThan75PercentTerminatorsCaseCounter: Int = 0
+    var emptyConsensusResultCounter: Int = 0
+    var consistencyViolationsCounter: Int = 0
+    var emptySetWasConsensusResultCounter: Int = 0
+
+    val badCasesThreshold: Int = (cfgTemplate.numberOfNodes * 0.51).toInt
+
     for (i <- 0 until TEST_CASES_TO_CHECK ) {
-      println(s"running simulation $i")
+      if (i % 10 == 0)
+        println(s"running simulation $i")
       val cfg = new TestCfg(i)
       val eligibilityRng: RandomNumberGenerator = RngFactory.getInstance(cfg.rngAlgorithm, cfg.eligibilityRngSeed)
       val msgDeliveryRng: RandomNumberGenerator = RngFactory.getInstance(cfg.rngAlgorithm, cfg.msgDeliveryRngSeed)
@@ -31,7 +42,7 @@ object SearchForBadCases {
       while (engine.numberOfNodesWhichTerminated < cfg.numberOfNodes && engine.currentIteration < HARE_ITERATIONS)
         engine.playNextRound()
 
-      //update records
+      //update stats
       if (engine.numberOfNodesWhichTerminated < smallestNumberOfTerminators) {
         smallestNumberOfTerminatorsWinner = i
         smallestNumberOfTerminators = engine.numberOfNodesWhichTerminated
@@ -43,18 +54,54 @@ object SearchForBadCases {
         biggestNumberOfRoundsWithTerminatingNodes = engine.numberOfRoundsWithTermination
         biggestNumberOfRoundsLMFraction = engine.measuredLostMessagesFraction
       }
+
+      totalNumberOfTerminators += engine.numberOfNodesWhichTerminated
+      if (engine.numberOfNodesWhichTerminated < badCasesThreshold)
+        lessThan75PercentTerminatorsCaseCounter += 1
+
+      val (commonConsensusResult, consistencyCheckOK) = consistencyCheck(engine)
+      if (! consistencyCheckOK)
+        consistencyViolationsCounter += 1
+
+      if (consistencyCheckOK && commonConsensusResult.isDefined && commonConsensusResult.get.isEmpty)
+        emptySetWasConsensusResultCounter += 1
     }
 
     println("------------------------------ results ------------------------------")
+    println(s"test cases checked: $TEST_CASES_TO_CHECK")
     println(s"hare iterations: $HARE_ITERATIONS")
+    println(f"average fraction of terminators [%%]: ${totalNumberOfTerminators.toDouble / cfgTemplate.numberOfNodes / TEST_CASES_TO_CHECK * 100}%2.4f")
+    println(f"fraction of cases when less than 75%% nodes were able to terminate [%%]: ${lessThan75PercentTerminatorsCaseCounter.toDouble / TEST_CASES_TO_CHECK * 100}%2.4f")
+    println(s"average iteration when a node hits 'ready to terminate' status: TODO")
+    println(s"number of consistency violations: $consistencyViolationsCounter")
+    println(f"number of cases when consensus result was empty: $emptySetWasConsensusResultCounter")
+    println()
     println(s"worst case in category 'smallest number of terminators'")
     println(s"    number of terminators: $smallestNumberOfTerminators")
     println(s"    random seed: $smallestNumberOfTerminatorsWinner")
     println(f"    messages lost [%%]: ${smallestNumberOfTerminatorsLMFraction * 100}%2.2f")
+    println()
     println(s"worst case in category 'termination spread across many iterations'")
     println(s"    number of rounds with termination: $biggestNumberOfRoundsWithTerminatingNodes")
     println(s"    random seed: $biggestNumberOfRoundsWithTerminationWinner")
     println(f"    messages lost [%%]: ${biggestNumberOfRoundsLMFraction * 100}%2.2f")
+  }
+
+  private def consistencyCheck(engine: SimEngine): (Option[CollectionOfMarbles], Boolean) = {
+    var commonConsensusResult: Option[CollectionOfMarbles] = None
+    for (i <- 0 until cfgTemplate.numberOfNodes) {
+      engine.consensusResult(i) match {
+        case None =>
+          //do nothing
+        case Some(coll) =>
+          if (! commonConsensusResult.isDefined)
+            commonConsensusResult = Some(coll)
+          else if (commonConsensusResult.get != coll)
+            return (commonConsensusResult, false)
+
+      }
+    }
+    return (commonConsensusResult, true)
   }
 
   class TestCfg(seed: Long) extends Config {
@@ -65,7 +112,7 @@ object SearchForBadCases {
     override val marblesRangeForHonestNodes: Int = 20
 
     override val isNetworkReliable: Boolean = false
-    override val probabilityOfAMessageGettingLost: Double = 0.2
+    override val probabilityOfAMessageGettingLost: Double = 0.6
 
     override val numberOfNodes: Int = 10
     override val averageNumberOfActiveNodes: Double = 5
@@ -81,8 +128,9 @@ object SearchForBadCases {
     override val manuallyProvidedInputSets: Option[Map[NodeId, CollectionOfMarbles]] = None
 
     override val enforceFixedNumberOfActiveNodes: Boolean = true
+    override val ignoreSecondNotifyFromTheSameSender: Boolean = true
 
-    override def zombieIterationsLimit: NodeId = 5
+    override val zombieIterationsLimit: NodeId = 0
   }
 
 
