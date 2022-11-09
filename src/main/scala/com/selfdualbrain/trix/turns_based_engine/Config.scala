@@ -41,4 +41,5 @@ trait Config {
   def faultyNodesTolerance: Int = defaultTolerance
   def zombieIterationsLimit: Int = 0
   def ignoreSecondNotifyFromTheSameSender: Boolean = false
+  def resetNotificationsCounterAtEveryIteration: Boolean = true
 }

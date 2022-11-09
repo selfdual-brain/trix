@@ -24,9 +24,9 @@ class HonestNodeImproved(id: NodeId, simConfig: Config, context: NodeContext, in
   private var marblesWithEnoughSupport: Set[Marble] = Set.empty
   private var latestValidStatusMessages: Set[Message.Status] = Set.empty
   private var lastLocallyFormedCommitCertificate: Option[CommitCertificate] = None
-  private val notifyMessagesCounter = new mutable.HashMap[CollectionOfMarbles, mutable.HashSet[NodeId]]
-  private val notifyMsgSenders = new mutable.HashSet[NodeId](simConfig.averageNumberOfActiveNodes.toInt * 10, 0.75)
-  private val votesMap = new mutable.HashMap[NodeId, CollectionOfMarbles](simConfig.averageNumberOfActiveNodes.toInt * 10, 0.75)
+  private var notifyMessagesCounter = new mutable.HashMap[CollectionOfMarbles, mutable.HashSet[NodeId]]
+  private var notifyMsgSenders = new mutable.HashSet[NodeId](simConfig.averageNumberOfActiveNodes.toInt * 10, 0.75)
+  private var votesMap = new mutable.HashMap[NodeId, CollectionOfMarbles](simConfig.averageNumberOfActiveNodes.toInt * 10, 0.75)
   //iteration ----> map[collectionOfMarbles ---> certificate]
   private val certificates = new FastIntMap[mutable.HashMap[CollectionOfMarbles, CommitCertificate]](100)
   private val localStatistics = new LocalNodeStats
@@ -46,6 +46,12 @@ class HonestNodeImproved(id: NodeId, simConfig: Config, context: NodeContext, in
   override def onIterationBegin(iteration: Int): Unit = {
     if (readyToTerminate)
       zombieIteration += 1
+
+    if (simConfig.resetNotificationsCounterAtEveryIteration) {
+      notifyMessagesCounter = new mutable.HashMap[CollectionOfMarbles, mutable.HashSet[NodeId]]
+      notifyMsgSenders = new mutable.HashSet[NodeId](simConfig.averageNumberOfActiveNodes.toInt * 2, 0.75)
+      votesMap = new mutable.HashMap[NodeId, CollectionOfMarbles](simConfig.averageNumberOfActiveNodes.toInt * 2, 0.75)
+    }
   }
 
   override def executeSendingPhase(): Unit = {
