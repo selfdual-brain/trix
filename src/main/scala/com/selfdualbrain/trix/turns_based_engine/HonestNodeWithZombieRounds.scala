@@ -13,7 +13,7 @@ import scala.collection.mutable
  * - safe value proofs are built following the go-spacemesh logic
  * - termination is delayed for N iterations, so to avoid the self-lock problem (aka "zombie iterations")
  */
-class HonestNodeImproved(id: NodeId, simConfig: Config, context: NodeContext, inputSet: CollectionOfMarbles, out: Option[AbstractTextOutput])
+class HonestNodeWithZombieRounds(id: NodeId, simConfig: Config, context: NodeContext, inputSet: CollectionOfMarbles, out: Option[AbstractTextOutput])
   extends Node(id, simConfig, context, inputSet, out) {
 
   private val equivocators: mutable.Set[NodeId] = new mutable.HashSet[NodeId]

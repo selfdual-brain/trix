@@ -4,7 +4,7 @@ import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, NodeId}
 import com.selfdualbrain.trix.turns_based_engine.{Config, InputSetsGenerator, RandomNumberGenerator, RngFactory, SimEngine, SimEngineImpl}
 
 object SearchForBadCases {
-  val HARE_ITERATIONS: Int = 30
+  val HARE_ITERATIONS: Int = 20
   val TEST_CASES_TO_CHECK: Int = 1000
 
   val cfgTemplate = new TestCfg(0)
@@ -21,11 +21,14 @@ object SearchForBadCases {
 
     var totalNumberOfTerminators: Int = 0
     var lessThan75PercentTerminatorsCaseCounter: Int = 0
+    var lessThan60PercentTerminatorsCaseCounter: Int = 0
+
     var emptyConsensusResultCounter: Int = 0
     var consistencyViolationsCounter: Int = 0
     var emptySetWasConsensusResultCounter: Int = 0
 
-    val badCasesThreshold: Int = (cfgTemplate.numberOfNodes * 0.51).toInt
+    val badCasesThreshold75: Int = (cfgTemplate.numberOfNodes * 0.75).toInt
+    val badCasesThreshold60: Int = (cfgTemplate.numberOfNodes * 0.60).toInt
 
     for (i <- 0 until TEST_CASES_TO_CHECK ) {
       if (i % 10 == 0)
@@ -56,8 +59,10 @@ object SearchForBadCases {
       }
 
       totalNumberOfTerminators += engine.numberOfNodesWhichTerminated
-      if (engine.numberOfNodesWhichTerminated < badCasesThreshold)
+      if (engine.numberOfNodesWhichTerminated < badCasesThreshold75)
         lessThan75PercentTerminatorsCaseCounter += 1
+      if (engine.numberOfNodesWhichTerminated < badCasesThreshold60)
+        lessThan60PercentTerminatorsCaseCounter += 1
 
       val (commonConsensusResult, consistencyCheckOK) = consistencyCheck(engine)
       if (! consistencyCheckOK)
@@ -72,6 +77,8 @@ object SearchForBadCases {
     println(s"hare iterations: $HARE_ITERATIONS")
     println(f"average fraction of terminators [%%]: ${totalNumberOfTerminators.toDouble / cfgTemplate.numberOfNodes / TEST_CASES_TO_CHECK * 100}%2.4f")
     println(f"fraction of cases when less than 75%% nodes were able to terminate [%%]: ${lessThan75PercentTerminatorsCaseCounter.toDouble / TEST_CASES_TO_CHECK * 100}%2.4f")
+    println(f"fraction of cases when less than 60%% nodes were able to terminate [%%]: ${lessThan60PercentTerminatorsCaseCounter.toDouble / TEST_CASES_TO_CHECK * 100}%2.4f")
+
     println(s"average iteration when a node hits 'ready to terminate' status: TODO")
     println(s"number of consistency violations: $consistencyViolationsCounter")
     println(f"number of cases when consensus result was empty: $emptySetWasConsensusResultCounter")
@@ -104,6 +111,36 @@ object SearchForBadCases {
     return (commonConsensusResult, true)
   }
 
+//  class TestCfg(seed: Long) extends Config {
+//    override val maxFractionOfFaultyNodes: Double = 0
+//    override val fractionOfDeafNodesAmongFaulty: Double = 0
+//
+//    override val inputSetSizeRange: (Int, Int) = (15, 20)
+//    override val marblesRangeForHonestNodes: Int = 20
+//
+//    override val isNetworkReliable: Boolean = false
+//    override val probabilityOfAMessageGettingLost: Double = 0.1
+//
+//    override val numberOfNodes: Int = 10
+//    override val averageNumberOfActiveNodes: Double = 5
+//    override val averageNumberOfLeaders: Double = 1
+//
+//    override val eligibilityRngSeed: Long = seed
+//    override val nodeDecisionsRngSeed: Long = seed + 1
+//    override val msgDeliveryRngSeed: Long = seed + 2
+//    override val inputSetsGeneratorSeed: Long = seed + 3
+//    override val rngAlgorithm: String = "jdk-std"
+//
+//    override val initialSizeOfInboxBuffer: Int = 10
+//    override val manuallyProvidedInputSets: Option[Map[NodeId, CollectionOfMarbles]] = None
+//
+//    override val enforceFixedNumberOfActiveNodes: Boolean = true
+//    override val ignoreSecondNotifyFromTheSameSender: Boolean = true
+//    override val resetNotificationsCounterAtEveryIteration: Boolean = true
+//
+//    override val zombieIterationsLimit: NodeId = 0
+//  }
+
   class TestCfg(seed: Long) extends Config {
     override val maxFractionOfFaultyNodes: Double = 0
     override val fractionOfDeafNodesAmongFaulty: Double = 0
@@ -112,10 +149,10 @@ object SearchForBadCases {
     override val marblesRangeForHonestNodes: Int = 20
 
     override val isNetworkReliable: Boolean = false
-    override val probabilityOfAMessageGettingLost: Double = 0.6
+    override val probabilityOfAMessageGettingLost: Double = 0.2
 
-    override val numberOfNodes: Int = 10
-    override val averageNumberOfActiveNodes: Double = 5
+    override val numberOfNodes: Int = 100
+    override val averageNumberOfActiveNodes: Double = 10
     override val averageNumberOfLeaders: Double = 1
 
     override val eligibilityRngSeed: Long = seed
@@ -129,9 +166,9 @@ object SearchForBadCases {
 
     override val enforceFixedNumberOfActiveNodes: Boolean = true
     override val ignoreSecondNotifyFromTheSameSender: Boolean = true
+    override val resetNotificationsCounterAtEveryIteration: Boolean = true
 
     override val zombieIterationsLimit: NodeId = 0
   }
-
 
 }

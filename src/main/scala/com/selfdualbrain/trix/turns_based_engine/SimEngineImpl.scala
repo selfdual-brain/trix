@@ -257,7 +257,7 @@ class SimEngineImpl(
         case "original" =>
           new HonestNodeFollowingGoSpacemesh(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
         case "improved" =>
-          new HonestNodeImproved(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
+          new HonestNodeWithZombieRounds(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
         case other =>
           throw new RuntimeException(s"unsupported hones node algorithm mnemonic found in config: $other")
       }
