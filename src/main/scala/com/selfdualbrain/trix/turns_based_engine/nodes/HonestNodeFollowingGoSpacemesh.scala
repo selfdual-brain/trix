@@ -1,15 +1,19 @@
-package com.selfdualbrain.trix.turns_based_engine
+package com.selfdualbrain.trix.turns_based_engine.nodes
 
+import com.selfdualbrain.continuum.data_structures.FastIntMap
 import com.selfdualbrain.continuum.textout.AbstractTextOutput
 import com.selfdualbrain.trix.data_structures.IndexedBatteryOfIntCounters
 import com.selfdualbrain.trix.protocol_model._
+import com.selfdualbrain.trix.turns_based_engine._
 
 import scala.collection.mutable
 
 /**
- * We follow the math paper on Hare, with one exception: we persistently blacklist all discovered equivocators.
+ * We follow the math paper on Hare, with 2 exceptions:
+ * - we persistently blacklist all discovered equivocators
+ * - we build safe value proofs following the processing logic as implemented in go-spacemesh (which is different that the one described in the paper)
  */
-class HonestNodeFollowingThePaper(id: NodeId, simConfig: Config, context: NodeContext, inputSet: CollectionOfMarbles, out: Option[AbstractTextOutput])
+class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: NodeContext, inputSet: CollectionOfMarbles, out: Option[AbstractTextOutput])
   extends Node(id, simConfig, context, inputSet, out) {
 
   private val equivocators: mutable.Set[NodeId] = new mutable.HashSet[NodeId]
@@ -21,8 +25,21 @@ class HonestNodeFollowingThePaper(id: NodeId, simConfig: Config, context: NodeCo
   private var latestValidStatusMessages: Set[Message.Status] = Set.empty
   private var lastLocallyFormedCommitCertificate: Option[CommitCertificate] = None
   private val notifyMessagesCounter = new mutable.HashMap[CollectionOfMarbles, mutable.HashSet[NodeId]]
+  private val notifyMsgSenders = new mutable.HashSet[NodeId](simConfig.averageNumberOfActiveNodes.toInt * 10, 0.75)
 
-  override def stats: NodeStats = NodeStats.EmptyMock
+  //iteration ----> map[collectionOfMarbles ---> certificate]
+  private val certificates = new FastIntMap[mutable.HashMap[CollectionOfMarbles, CommitCertificate]](100)
+  private val localStatistics = new LocalNodeStats
+
+  private class LocalNodeStats extends NodeStats {
+    var notifyCertificateOverridesWithSetGoingUp: Int = 0
+    var notifyCertificateOverridesWithSetGoingDown: Int = 0
+    var notifyCertificateOverridesWithNonMonotonicChange: Int = 0
+    var emptyProposalRounds: Int = 0
+    override def equivocatorsDiscovered: Int = equivocators.size
+  }
+
+  override def stats: NodeStats = localStatistics
 
   override def onIterationBegin(iteration: Int): Unit = {
     //do nothing
@@ -41,48 +58,32 @@ class HonestNodeFollowingThePaper(id: NodeId, simConfig: Config, context: NodeCo
 
       case Round.Proposal =>
         output("leader", s"latest valid status messages: $latestValidStatusMessages")
+        val justifiedStatusMessages = latestValidStatusMessages.filter(msg => isStatusMessageJustified(msg))
+
         val svp: Option[SafeValueProof] =
-          if (certifiedIteration == -1) { //todo: this condition is simply wrong and must be replaced (does not reflect the definition of safe value proof)
-            val bufferOfMarbles = new mutable.HashSet[Marble]
-            val statusMessagesToBeConsidered = latestValidStatusMessages.filter(msg => msg.acceptedSet.elements.subsetOf(marblesWithEnoughSupport)).toSet
-            if (statusMessagesToBeConsidered.size < simConfig.faultyNodesTolerance + 1)
-              None
-          else {
-            for (statusMsg <- statusMessagesToBeConsidered)
-              bufferOfMarbles.addAll(statusMsg.acceptedSet.elements)
-            val magmaSet = new CollectionOfMarbles(bufferOfMarbles.toSet)
-            output("leader-magma-set", s"$magmaSet")
-            Some(SafeValueProof.Bootstrap(context.iteration, statusMessagesToBeConsidered, magmaSet))
-          }
-        } else {
-          if (latestValidStatusMessages.isEmpty) {
-            output("leader-svp-fail", "no valid status messages")
+          if (justifiedStatusMessages.size < simConfig.faultyNodesTolerance + 1) {
+            output("leader-svp-fail", s"number of valid status messages less than f+1: ${justifiedStatusMessages.size}")
             None
           } else {
-            if (latestValidStatusMessages.size < simConfig.faultyNodesTolerance + 1) {
-              output("leader-svp-fail", s"number of status messages less than f+1: ${latestValidStatusMessages.size}")
-              None
+            val maxCertifiedIteration: Int = justifiedStatusMessages.map(msg => msg.certifiedIteration).max
+            if (maxCertifiedIteration == -1) {
+              val bufferOfMarbles = new mutable.HashSet[Marble]
+              for (statusMsg <- justifiedStatusMessages)
+                bufferOfMarbles.addAll(statusMsg.acceptedSet.elements)
+              val magmaSet = new CollectionOfMarbles(bufferOfMarbles.toSet)
+              output("leader-magma-set", s"$magmaSet")
+              Some(SafeValueProof.Bootstrap(context.iteration, justifiedStatusMessages, magmaSet))
             } else {
-              val maxCertifiedIteration: Int = latestValidStatusMessages.map(msg => msg.certifiedIteration).max
-              //todo: check this case in go-spacemesh
-              //   if (maxCertifiedIteration < 0)
-              //      throw new RuntimeException("Could not form SVP: maxCertifiedIteration < 0")
-              if (maxCertifiedIteration >= 0) {
-                val messagesWithMaxCertifiedIteration = latestValidStatusMessages.filter(msg => msg.certifiedIteration == maxCertifiedIteration)
-                val candidateSets = messagesWithMaxCertifiedIteration.map(msg => msg.acceptedSet)
-                if (candidateSets.size > 1) {
-                  output("svp-candidate-sets", s"$candidateSets")
-                  output("messages-with-max-ci", s"$messagesWithMaxCertifiedIteration")
-                  throw new RuntimeException(s"Could not form SVP: max-certified-iteration=$maxCertifiedIteration candidateSets.size = ${candidateSets.size}")
-                }
-                Some(SafeValueProof.Proper(context.iteration, latestValidStatusMessages, messagesWithMaxCertifiedIteration.head))
-              } else {
-                output("leader-svp-fail", "max certified iteration (among seen status messages) was -1")
-                None
+              val messagesWithMaxCertifiedIteration = justifiedStatusMessages.filter(msg => msg.certifiedIteration == maxCertifiedIteration)
+              val candidateSets = messagesWithMaxCertifiedIteration.map(msg => msg.acceptedSet)
+              if (candidateSets.size > 1) {
+                output("svp-candidate-sets", s"$candidateSets")
+                output("messages-with-max-ci", s"$messagesWithMaxCertifiedIteration")
+                throw new RuntimeException(s"Could not form SVP: max-certified-iteration=$maxCertifiedIteration candidateSets.size = ${candidateSets.size}")
               }
+              Some(SafeValueProof.Proper(context.iteration, justifiedStatusMessages, messagesWithMaxCertifiedIteration.head))
             }
           }
-        }
 
         if (svp.isDefined) {
           output("svp-formed", svp.get.safeValue.toString)
@@ -121,7 +122,6 @@ class HonestNodeFollowingThePaper(id: NodeId, simConfig: Config, context: NodeCo
       case Round.Status =>
         val allStatusMessages: Iterable[Message.Status] = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.Status]]
         latestValidStatusMessages = allStatusMessages.toSet
-//        latestValidStatusMessages = allStatusMessages.filter(msg => msg.acceptedSet.elements.subsetOf(marblesWithEnoughSupport)).toSet
         return None
 
       case Round.Proposal =>
@@ -143,6 +143,7 @@ class HonestNodeFollowingThePaper(id: NodeId, simConfig: Config, context: NodeCo
           commitCandidate = Some(bestMsgSoFar.safeValueProof.safeValue)
         } else {
           output("proposal-is-missing", "")
+          localStatistics.emptyProposalRounds += 1
           commitCandidate = None
         }
 
@@ -168,8 +169,28 @@ class HonestNodeFollowingThePaper(id: NodeId, simConfig: Config, context: NodeCo
         return None
 
       case Round.Notify =>
+        //todo: we can optimize the logic of Notify round by taking into account
+        //todo: also a locally-formed commit certificate (if present)
+        //todo: this could be accomplished by adding do this collection yet another 'notify' message coming from myself
         val allNotifyMessages = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.Notify]]
-        val notifyMessagesWithGreaterCertifiedIteration = allNotifyMessages.filter(msg => msg.commitCertificate.iteration >= certifiedIteration)
+        val effectiveNotifyMessages = filterOutNotifyOverrides(allNotifyMessages)
+
+        //update cached certificates
+        for (msg <- effectiveNotifyMessages) {
+          val certificate = msg.commitCertificate
+          val map: mutable.HashMap[CollectionOfMarbles, CommitCertificate] = certificates.get(certificate.iteration) match {
+            case Some(m) => m
+            case None =>
+              val newMap = new mutable.HashMap[CollectionOfMarbles, CommitCertificate]
+              certificates += certificate.iteration -> newMap
+              newMap
+          }
+
+          if (! map.contains(certificate.acceptedSet))
+            map += certificate.acceptedSet -> certificate
+        }
+
+        val notifyMessagesWithGreaterCertifiedIteration = effectiveNotifyMessages.filter(msg => msg.commitCertificate.iteration >= certifiedIteration)
 
         //checking if the "wild case" of distinct votes can ever happen
         //the math paper is not clear on what to do with this wild case
@@ -184,15 +205,34 @@ class HonestNodeFollowingThePaper(id: NodeId, simConfig: Config, context: NodeCo
         //we update current consensus approximation once we get a notify message with a better certificate than last we knew about
         if (notifyMessagesWithGreaterCertifiedIteration.nonEmpty) {
           val goodNotifyMsg = notifyMessagesWithGreaterCertifiedIteration.head
+          val oldSet: Set[Int] = currentConsensusApproximation.elements
+          val newSet: Set[Int] = goodNotifyMsg.commitCertificate.acceptedSet.elements
+          val overrideCase = NotifyRoundOverrideCase.recognize(oldSet, newSet)
+          overrideCase match {
+            case NotifyRoundOverrideCase.NoChange => //ignore
+            case NotifyRoundOverrideCase.GoingUp => localStatistics.notifyCertificateOverridesWithSetGoingUp += 1
+            case NotifyRoundOverrideCase.GoingDown => localStatistics.notifyCertificateOverridesWithSetGoingDown += 1
+            case NotifyRoundOverrideCase.NonMonotonic => localStatistics.notifyCertificateOverridesWithNonMonotonicChange += 1
+          }
+          if (certifiedIteration >= 0 && this.isOutputEnabled) {
+            val iterUpdateDesc = s"$certifiedIteration->${goodNotifyMsg.commitCertificate.iteration}"
+            val differenceDesc: String = overrideCase match {
+              case NotifyRoundOverrideCase.NoChange => "no change"
+              case NotifyRoundOverrideCase.GoingUp => s"added ${newSet diff oldSet}"
+              case NotifyRoundOverrideCase.GoingDown => s"removed ${oldSet diff newSet}"
+              case NotifyRoundOverrideCase.NonMonotonic => s"added ${newSet diff oldSet} removed ${oldSet diff newSet}"
+            }
+            output("better-commit-certificate", s"certified iteration update: $iterUpdateDesc difference: $differenceDesc")
+          }
           currentConsensusApproximation = goodNotifyMsg.commitCertificate.acceptedSet
-          output("consensus-approx-update", currentConsensusApproximation.mkString(","))
           certifiedIteration = goodNotifyMsg.commitCertificate.iteration
         }
 
         //update the counter of notify messages
         var consensusResult: Option[CollectionOfMarbles] = None
 
-        for (msg <- allNotifyMessages) {
+        for (msg <- effectiveNotifyMessages) {
+          notifyMsgSenders += msg.sender
           val setInQuestion: CollectionOfMarbles = msg.commitCertificate.acceptedSet
           notifyMessagesCounter.get(setInQuestion) match {
             case None =>
@@ -208,16 +248,20 @@ class HonestNodeFollowingThePaper(id: NodeId, simConfig: Config, context: NodeCo
               }
           }
         }
-        output("notify-counters", notifyMessagesCounterPrettyPrint())
+
+        if (isOutputEnabled) {
+          output("notify-messages-counter", notifyMessagesCounterPrettyPrint())
+        }
+
         if (consensusResult.nonEmpty)
           output("terminating", s"consensus=${consensusResult.get}")
+
         return consensusResult
     }
 
   }
 
   /*                              PRIVATE                          */
-
 
   /**
    * We filter out messages which are equivocations (i.e. same type of message in the same round from the same sender
@@ -254,6 +298,24 @@ class HonestNodeFollowingThePaper(id: NodeId, simConfig: Config, context: NodeCo
       }
       return buf.toString()
     }
+  }
+
+  private def isStatusMessageJustified(msg: Message.Status): Boolean =
+    if (msg.certifiedIteration == -1) {
+      msg.acceptedSet.elements.subsetOf(marblesWithEnoughSupport)
+    } else {
+      val mapOption: Option[mutable.HashMap[CollectionOfMarbles, CommitCertificate]] = certificates.get(msg.certifiedIteration)
+      mapOption match {
+        case None => false
+        case Some(m) => m.contains(msg.acceptedSet)
+      }
+    }
+
+  private def filterOutNotifyOverrides(messages: Iterable[Message.Notify]): Iterable[Message.Notify] = {
+    if (simConfig.ignoreSecondNotifyFromTheSameSender)
+      messages.filter(msg => ! notifyMsgSenders.contains(msg.sender))
+    else
+      messages
   }
 
 }

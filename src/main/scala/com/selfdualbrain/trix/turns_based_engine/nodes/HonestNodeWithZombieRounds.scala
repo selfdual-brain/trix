@@ -1,18 +1,20 @@
-package com.selfdualbrain.trix.turns_based_engine
+package com.selfdualbrain.trix.turns_based_engine.nodes
 
 import com.selfdualbrain.continuum.data_structures.FastIntMap
 import com.selfdualbrain.continuum.textout.AbstractTextOutput
 import com.selfdualbrain.trix.data_structures.IndexedBatteryOfIntCounters
 import com.selfdualbrain.trix.protocol_model._
+import com.selfdualbrain.trix.turns_based_engine._
 
 import scala.collection.mutable
 
 /**
- * We follow the math paper on Hare, with 2 exceptions:
+ * We follow the math paper on Hare, with the following exceptions:
  * - we persistently blacklist all discovered equivocators
- * - we build safe value proofs following the processing logic as implemented in go-spacemesh (which is different that the one described in the paper)
+ * - safe value proofs are built following the go-spacemesh logic
+ * - termination is delayed for N iterations, so to avoid the self-lock problem (aka "zombie iterations")
  */
-class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: NodeContext, inputSet: CollectionOfMarbles, out: Option[AbstractTextOutput])
+class HonestNodeWithZombieRounds(id: NodeId, simConfig: Config, context: NodeContext, inputSet: CollectionOfMarbles, out: Option[AbstractTextOutput])
   extends Node(id, simConfig, context, inputSet, out) {
 
   private val equivocators: mutable.Set[NodeId] = new mutable.HashSet[NodeId]
@@ -23,9 +25,9 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
   private var marblesWithEnoughSupport: Set[Marble] = Set.empty
   private var latestValidStatusMessages: Set[Message.Status] = Set.empty
   private var lastLocallyFormedCommitCertificate: Option[CommitCertificate] = None
-  private val notifyMessagesCounter = new mutable.HashMap[CollectionOfMarbles, mutable.HashSet[NodeId]]
-  private val notifyMsgSenders = new mutable.HashSet[NodeId](simConfig.averageNumberOfActiveNodes.toInt * 10, 0.75)
-
+  private var notifyMessagesCounter = new mutable.HashMap[CollectionOfMarbles, mutable.HashSet[NodeId]]
+  private var notifyMsgSenders = new mutable.HashSet[NodeId](simConfig.averageNumberOfActiveNodes.toInt * 10, 0.75)
+  private var votesMap = new mutable.HashMap[NodeId, CollectionOfMarbles](simConfig.averageNumberOfActiveNodes.toInt * 10, 0.75)
   //iteration ----> map[collectionOfMarbles ---> certificate]
   private val certificates = new FastIntMap[mutable.HashMap[CollectionOfMarbles, CommitCertificate]](100)
   private val localStatistics = new LocalNodeStats
@@ -37,11 +39,20 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
     var emptyProposalRounds: Int = 0
     override def equivocatorsDiscovered: Int = equivocators.size
   }
+  private var readyToTerminate: Boolean = false
+  private var zombieIteration: Int = 0
 
   override def stats: NodeStats = localStatistics
 
   override def onIterationBegin(iteration: Int): Unit = {
-    //do nothing
+    if (readyToTerminate)
+      zombieIteration += 1
+
+    if (simConfig.resetNotificationsCounterAtEveryIteration) {
+      notifyMessagesCounter = new mutable.HashMap[CollectionOfMarbles, mutable.HashSet[NodeId]]
+      notifyMsgSenders = new mutable.HashSet[NodeId](simConfig.averageNumberOfActiveNodes.toInt * 2, 0.75)
+      votesMap = new mutable.HashMap[NodeId, CollectionOfMarbles](simConfig.averageNumberOfActiveNodes.toInt * 2, 0.75)
+    }
   }
 
   override def executeSendingPhase(): Unit = {
@@ -230,9 +241,20 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
         //update the counter of notify messages
         var consensusResult: Option[CollectionOfMarbles] = None
 
+        //updating votes counter
         for (msg <- effectiveNotifyMessages) {
           notifyMsgSenders += msg.sender
           val setInQuestion: CollectionOfMarbles = msg.commitCertificate.acceptedSet
+
+          if (! simConfig.ignoreSecondNotifyFromTheSameSender) {
+            votesMap.get(msg.sender) match {
+              case None => //ignore
+              case Some(previouslyVotedFor) =>
+                notifyMessagesCounter(previouslyVotedFor).remove(msg.sender)
+            }
+            votesMap += msg.sender -> setInQuestion
+          }
+
           notifyMessagesCounter.get(setInQuestion) match {
             case None =>
               val coll = new mutable.HashSet[NodeId]
@@ -241,21 +263,39 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
 
             case Some(coll) =>
               coll += msg.sender
-              if (coll.size >= simConfig.faultyNodesTolerance + 1) {
-                if (consensusResult.isEmpty)
-                  consensusResult = Some(setInQuestion)
-              }
           }
         }
 
-        if (isOutputEnabled) {
-          output("notify-messages-counter", notifyMessagesCounterPrettyPrint())
+        output("notify-counters", notifyMessagesCounterPrettyPrint())
+
+        //finding the set of marbles with most votes
+        var topCandidate: CollectionOfMarbles = CollectionOfMarbles.empty
+        var topNumberOfVotes: Int = 0
+        var numberOfTopCandidates: Int = 0
+        for ((candidate,votes) <- notifyMessagesCounter) {
+          if (votes.size > topNumberOfVotes) {
+            topCandidate = candidate
+            topNumberOfVotes = votes.size
+            numberOfTopCandidates = 1
+          } else if (votes.size == topNumberOfVotes) {
+            numberOfTopCandidates += 1
+          }
         }
 
-        if (consensusResult.nonEmpty)
-          output("terminating", s"consensus=${consensusResult.get}")
+        if (topNumberOfVotes > simConfig.faultyNodesTolerance + 1)
+          consensusResult = Some(topCandidate)
 
-        return consensusResult
+        if (consensusResult.nonEmpty) {
+          readyToTerminate = true
+          if (zombieIteration >= simConfig.zombieIterationsLimit) {
+            if (numberOfTopCandidates > 1)
+              throw new RuntimeException(s"Ambiguity during consensus result. Number of top candidates = $numberOfTopCandidates")
+            output("terminating", s"consensus=${consensusResult.get}")
+            return consensusResult
+          }
+          output(s"zombie-phase[$zombieIteration]", s"consensus-candidate: ${consensusResult.get}")
+        }
+        return None
     }
 
   }

@@ -3,6 +3,7 @@ package com.selfdualbrain.trix.turns_based_engine
 import com.selfdualbrain.continuum.textout.AbstractTextOutput
 import com.selfdualbrain.trix.data_structures.IndexedBatteryOfIntCounters
 import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, Message, NodeId, Round}
+import com.selfdualbrain.trix.turns_based_engine.nodes.{HonestNodeFollowingGoSpacemesh, HonestNodeWithZombieRounds}
 
 import scala.collection.mutable.ArrayBuffer
 
