@@ -19,8 +19,8 @@ object DemoRunner {
       case 3 => SmallBlockchainWithPoorNetworkCfg
     }
 
-//    val output: Option[AbstractTextOutput] = Some(TextOutput.overConsole(4, ' '))
-    val output: Option[AbstractTextOutput] = None
+    val output: Option[AbstractTextOutput] = Some(TextOutput.overConsole(4, ' '))
+//    val output: Option[AbstractTextOutput] = None
     val eligibilityRng: RandomNumberGenerator = RngFactory.getInstance(cfg.rngAlgorithm, cfg.eligibilityRngSeed)
     val msgDeliveryRng: RandomNumberGenerator = RngFactory.getInstance(cfg.rngAlgorithm, cfg.msgDeliveryRngSeed)
     val nodeDecisionsRng: RandomNumberGenerator = RngFactory.getInstance(cfg.rngAlgorithm, cfg.nodeDecisionsRngSeed)

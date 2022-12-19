@@ -42,4 +42,3 @@ object Message {
                      commitCertificate: CommitCertificate
                    ) extends Message
 }
-

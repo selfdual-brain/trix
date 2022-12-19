@@ -14,13 +14,13 @@ object CertificateChances {
 
     val numberOfNodes: Int = 100000
     val committeeSize: Int = 800
-    val terminationPercentageRange = 50 to 65
+    val honestTerminationPercentageRange = 50 to 65
     val exactCalculationEnabled: Boolean = false
 
     println(s"number of nodes: $numberOfNodes")
     println(s"committee size: $committeeSize")
 
-    for (i <- terminationPercentageRange) {
+    for (i <- honestTerminationPercentageRange) {
       val exactResult: Double =
         if (exactCalculationEnabled)
           hareCertificateChancesExact(numberOfNodes, committeeSize, i.toDouble/100) * 100
@@ -28,7 +28,8 @@ object CertificateChances {
           0.0
       val gaussResult: Double = hareCertificateChancesGauss(numberOfNodes, committeeSize, i.toDouble/100) * 100
 
-      println(f"$i%%: $exactResult%2.15f $gaussResult%2.15f")
+      val overallTerminatorsNeeded: Double = i/0.666666
+      println(f"$i%% [$overallTerminatorsNeeded%2.2f]: $exactResult%2.15f $gaussResult%2.15f")
     }
 
   }
