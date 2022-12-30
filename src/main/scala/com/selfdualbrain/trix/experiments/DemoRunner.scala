@@ -41,7 +41,7 @@ object DemoRunner {
     println(s"D = equivocators discovered")
     println(s"E = empty proposal rounds")
     println()
-    println("        \tA\tB\tC\tD\tE")
+    println("        \tA\t\tB\t\tC\t\tD\t\tE")
     println("----------------------------------")
 
     for (i <- 0 until cfg.numberOfNodes) {

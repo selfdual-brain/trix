@@ -3,7 +3,7 @@ package com.selfdualbrain.trix.turns_based_engine
 import com.selfdualbrain.continuum.textout.AbstractTextOutput
 import com.selfdualbrain.trix.data_structures.IndexedBatteryOfIntCounters
 import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, Message, NodeId, Round}
-import com.selfdualbrain.trix.turns_based_engine.nodes.{HonestNodeFollowingGoSpacemesh, HonestNodeWithZombieRounds}
+import com.selfdualbrain.trix.turns_based_engine.nodes.{HonestNodeFollowingGoSpacemesh, HonestNodeGenesisCandidate, HonestNodeWithZombieRounds}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -256,7 +256,7 @@ class SimEngineImpl(
       val context = new NodeContextImpl(currentNodeId)
       val node = config.honestNodeAlgorithm match {
         case "original" =>
-          new HonestNodeFollowingGoSpacemesh(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
+          new HonestNodeGenesisCandidate(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
         case "improved" =>
           new HonestNodeWithZombieRounds(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
         case other =>

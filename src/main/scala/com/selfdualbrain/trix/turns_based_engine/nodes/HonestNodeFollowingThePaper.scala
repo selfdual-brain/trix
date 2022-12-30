@@ -87,7 +87,7 @@ class HonestNodeFollowingThePaper(id: NodeId, simConfig: Config, context: NodeCo
 
         if (svp.isDefined) {
           output("svp-formed", svp.get.safeValue.toString)
-          context.broadcastIncludingMyself(Message.Proposal(id, context.iteration, svp.get, fakeHash = context.rng.nextLong()))
+          context.broadcastIncludingMyself(Message.Proposal(id, context.iteration, svp.get, fakeEligibilityProof = context.rng.nextLong()))
         }
 
       case Round.Commit =>
@@ -131,11 +131,11 @@ class HonestNodeFollowingThePaper(id: NodeId, simConfig: Config, context: NodeCo
         if (allProposalMessages.nonEmpty) {
           //enforce there is at most one leader (finding the proposal message with smallest fake hash)
           var bestMsgSoFar: Message.Proposal = allProposalMessages.head
-          var bestHashSoFar: Long = bestMsgSoFar.fakeHash
+          var bestHashSoFar: Long = bestMsgSoFar.fakeEligibilityProof
           for (msg <- allProposalMessages) {
-            if (msg.fakeHash < bestMsgSoFar.fakeHash) {
+            if (msg.fakeEligibilityProof < bestMsgSoFar.fakeEligibilityProof) {
               bestMsgSoFar = msg
-              bestHashSoFar = msg.fakeHash
+              bestHashSoFar = msg.fakeEligibilityProof
             }
           }
 

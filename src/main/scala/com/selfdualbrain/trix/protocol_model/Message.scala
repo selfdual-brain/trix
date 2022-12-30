@@ -27,7 +27,7 @@ object Message {
                        sender: NodeId,
                        iteration: Int,
                        safeValueProof: SafeValueProof,
-                       fakeHash: Long //used for elimination of too many leaders; in real implementation
+                       fakeEligibilityProof: Long //needed to ensure there is at most 1 leader (every node picks the leader with the smallest eligibility proof)
                      ) extends Message
 
   case class Commit(

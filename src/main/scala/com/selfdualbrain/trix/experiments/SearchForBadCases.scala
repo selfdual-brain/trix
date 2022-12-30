@@ -149,7 +149,7 @@ object SearchForBadCases {
     override val marblesRangeForHonestNodes: Int = 20
 
     override val isNetworkReliable: Boolean = false
-    override val probabilityOfAMessageGettingLost: Double = 0.2
+    override val probabilityOfAMessageGettingLost: Double = 0.1
 
     override val numberOfNodes: Int = 100
     override val averageNumberOfActiveNodes: Double = 10

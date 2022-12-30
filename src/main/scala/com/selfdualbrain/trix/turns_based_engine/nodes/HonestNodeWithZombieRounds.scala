@@ -97,7 +97,7 @@ class HonestNodeWithZombieRounds(id: NodeId, simConfig: Config, context: NodeCon
 
         if (svp.isDefined) {
           output("svp-formed", svp.get.safeValue.toString)
-          context.broadcastIncludingMyself(Message.Proposal(id, context.iteration, svp.get, fakeHash = context.rng.nextLong()))
+          context.broadcastIncludingMyself(Message.Proposal(id, context.iteration, svp.get, fakeEligibilityProof = context.rng.nextLong()))
         }
 
       case Round.Commit =>
@@ -140,11 +140,11 @@ class HonestNodeWithZombieRounds(id: NodeId, simConfig: Config, context: NodeCon
         if (allProposalMessages.nonEmpty) {
           //enforce there is at most one leader (finding the proposal message with smallest fake hash)
           var bestMsgSoFar: Message.Proposal = allProposalMessages.head
-          var bestHashSoFar: Long = bestMsgSoFar.fakeHash
+          var bestHashSoFar: Long = bestMsgSoFar.fakeEligibilityProof
           for (msg <- allProposalMessages) {
-            if (msg.fakeHash < bestMsgSoFar.fakeHash) {
+            if (msg.fakeEligibilityProof < bestMsgSoFar.fakeEligibilityProof) {
               bestMsgSoFar = msg
-              bestHashSoFar = msg.fakeHash
+              bestHashSoFar = msg.fakeEligibilityProof
             }
           }
 
@@ -181,7 +181,7 @@ class HonestNodeWithZombieRounds(id: NodeId, simConfig: Config, context: NodeCon
       case Round.Notify =>
         //todo: we can optimize the logic of Notify round by taking into account
         //todo: also a locally-formed commit certificate (if present)
-        //todo: this could be accomplished by adding do this collection yet another 'notify' message coming from myself
+        //todo: this could be accomplished by adding to this collection yet another 'notify' message coming from myself
         val allNotifyMessages = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.Notify]]
         val effectiveNotifyMessages = filterOutNotifyOverrides(allNotifyMessages)
 
