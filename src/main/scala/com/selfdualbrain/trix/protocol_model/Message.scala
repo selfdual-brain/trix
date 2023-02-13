@@ -3,6 +3,11 @@ package com.selfdualbrain.trix.protocol_model
 sealed abstract class Message {
   def sender: NodeId
   def iteration: Int
+  def isSignatureOK: Boolean = {
+    //messages with invalid signatures are currently not simulated
+    return true
+  }
+  def isEligibilityProofOK: Boolean = true
 }
 
 object Message {

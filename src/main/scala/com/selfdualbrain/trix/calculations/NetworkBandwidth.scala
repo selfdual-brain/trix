@@ -5,21 +5,21 @@ object NetworkBandwidth {
   /*      PARAMS       */
 
   val numberOfNodes: Int = 100000
-  val maxNumberOfMarblesInACollection: Int = 50
+  val averageNumberOfMarblesInACollection: Int = 50
   val c: Int = 800 //committee size
-  val d: Int = 5 //target number of leader candidates to be elected in the proposal round
+  val d: Int = 10 //target number of leader candidates to be elected in the proposal round
   val nodeId: Int = 32
-  val marbleId: Int = 32
+  val marbleId: Int = 20
   val msgSignature: Int = 64
-  val eligibilityProof: Int = 64
-  val iterationNumber: Int = 4
-  val messageHash: Int = 32
+  val eligibilityProof: Int = 80 //maybe we need to add here also the size of VRF "message"
+  val iterationNumber: Int = 1
+  val messageHash: Int = 32 //sha-265
 
 
   /*      MESSAGES       */
 
   val senderId: Int = nodeId
-  val marblesCollectionTotal: Int = maxNumberOfMarblesInACollection * marbleId
+  val marblesCollectionTotal: Int = averageNumberOfMarblesInACollection * marbleId
   val msgMetadata: Int = senderId + iterationNumber + eligibilityProof + msgSignature
 
   class MsgVolumesProfile {
@@ -37,10 +37,10 @@ object NetworkBandwidth {
 
     p.preRoundMsg = senderId + marblesCollectionTotal + eligibilityProof + msgSignature
     p.statusMsg = msgMetadata + iterationNumber + marblesCollectionTotal
-    p.svp = iterationNumber + c * p.statusMsg + marblesCollectionTotal
+    p.svp = iterationNumber + c * p.statusMsg / 2
     p.proposalMsg = msgMetadata + p.svp
     p.commitMsg = msgMetadata + marblesCollectionTotal
-    p.commitCertificate = marblesCollectionTotal + iterationNumber + c * p.commitMsg
+    p.commitCertificate = marblesCollectionTotal + iterationNumber + c * p.commitMsg / 2
     p.notifyMsg = msgMetadata + p.commitCertificate
 
     return p

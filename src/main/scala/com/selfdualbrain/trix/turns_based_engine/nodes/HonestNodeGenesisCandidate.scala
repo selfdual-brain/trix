@@ -141,9 +141,15 @@ class HonestNodeGenesisCandidate(id: NodeId, simConfig: Config, context: NodeCon
             }
           }
 
-          //todo: validation of svp
-          output("accepting-winning-proposal", bestMsgSoFar.toString)
-          commitCandidate = Some(bestMsgSoFar.safeValueProof.safeValue)
+          //validation of svp
+          val svp: SafeValueProof = bestMsgSoFar.safeValueProof
+          if (isIncomingSvpValid(svp)) {
+            output("accepting-winning-proposal", bestMsgSoFar.toString)
+            commitCandidate = Some(bestMsgSoFar.safeValueProof.safeValue)
+          } else {
+//            output(code ="invalid-svp", bestMsgSoFar.toString)
+            commitCandidate = None
+          }
         } else {
           output("proposal-is-missing", "")
           localStatistics.emptyProposalRounds += 1
@@ -264,5 +270,83 @@ class HonestNodeGenesisCandidate(id: NodeId, simConfig: Config, context: NodeCon
         case Some(m) => m.contains(msg.acceptedSet)
       }
     }
+
+  def isIncomingSvpValid(svp: SafeValueProof): Boolean = {
+    svp match {
+      case SafeValueProof.Bootstrap(iteration, statusMessages, magmaSet) =>
+        if (iteration != context.iteration) {
+          output(code ="invalid-svp", "bootstrap case: wrong svp iteration")
+          return false
+        }
+
+        for (msg <- statusMessages) {
+          if (! msg.isSignatureOK) {
+            output(code = "invalid-svp", "bootstrap case: wrong signature")
+            return false
+          }
+          if (! msg.isEligibilityProofOK) {
+            output(code = "invalid-svp", "bootstrap case: wrong eligibility")
+            return false
+          }
+          if (msg.iteration != context.iteration) {
+            output(code = "invalid-svp", s"bootstrap case: wrong iteration of status message $msg")
+            return false
+          }
+          if (msg.certifiedIteration != -1) {
+            output(code = "invalid-svp", s"bootstrap case: wrong certified iteration (should be -1) of status message $msg")
+            return false
+          }
+          if (! isStatusMessageJustified(msg)) {
+            output(code = "invalid-svp", s"bootstrap case: status message did not pass local validation: $msg")
+            return false
+          }
+        }
+
+        val bufferOfMarbles = new mutable.HashSet[Marble]
+        for (msg <- statusMessages)
+          bufferOfMarbles.addAll(msg.acceptedSet.elements)
+        val recalculatedMagmaSet = new CollectionOfMarbles(bufferOfMarbles.toSet)
+
+        if (! recalculatedMagmaSet.equals(magmaSet)) {
+          output(code = "invalid-svp", "bootstrap case: declared magma set does not match cited collection of messages")
+          return false
+        }
+
+        return true
+
+      case SafeValueProof.Proper(iteration, statusMessages, magicMessage) =>
+        if (iteration != context.iteration) {
+          output(code ="invalid-svp", "proper case: wrong svp iteration")
+          return false
+        }
+
+        for (msg <- statusMessages) {
+          if (! msg.isSignatureOK) {
+
+          }
+          if (! msg.isEligibilityProofOK) {
+
+          }
+          if (msg.iteration != context.iteration) {
+
+          }
+
+          if (! msg.isSignatureOK || ! msg.isEligibilityProofOK || msg.iteration != context.iteration || ! isStatusMessageJustified(msg))
+            return false
+        }
+
+        val maxCertifiedIteration: Int = statusMessages.map(msg => msg.certifiedIteration).max
+        val messagesWithMaxCertifiedIteration = statusMessages.filter(msg => msg.certifiedIteration == maxCertifiedIteration)
+        val candidateSets = messagesWithMaxCertifiedIteration.map(msg => msg.acceptedSet)
+        if (candidateSets.size > 1)
+          return false
+
+        if (magicMessage.acceptedSet != candidateSets.head)
+          return false
+
+        return true
+    }
+  }
+
 
 }
