@@ -46,6 +46,20 @@ object NetworkBandwidth {
     return p
   }
 
+  def dmitryProtocol: MsgVolumesProfile = {
+    val p = new MsgVolumesProfile
+
+    p.preRoundMsg = senderId + marblesCollectionTotal + eligibilityProof + msgSignature + 32
+    p.statusMsg = msgMetadata + iterationNumber + marblesCollectionTotal + 32
+    p.svp = iterationNumber + c * p.statusMsg / 2
+    p.proposalMsg = msgMetadata + p.svp + 32
+    p.commitMsg = msgMetadata + marblesCollectionTotal + 32
+    p.commitCertificate = marblesCollectionTotal + iterationNumber + c * p.commitMsg / 2
+    p.notifyMsg = msgMetadata + p.commitCertificate + 32
+
+    return p
+  }
+
   def optimizedProtocol: MsgVolumesProfile = {
     val p = new MsgVolumesProfile
 
@@ -89,9 +103,13 @@ object NetworkBandwidth {
   def main(args: Array[String]): Unit = {
     import java.util.Locale
     Locale.setDefault(new Locale("en", "US"))
+
     println("----------------- original protocol [all values in megabytes] -------------------")
     printResults(originalProtocol)
+    println()
 
+    println("----------------- Dmitry variant [all values in megabytes] -------------------")
+    printResults(dmitryProtocol)
     println()
 
     println("----------------- optimized protocol [all values in megabytes] -------------------")
