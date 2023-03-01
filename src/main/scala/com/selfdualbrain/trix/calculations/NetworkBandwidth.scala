@@ -14,6 +14,7 @@ object NetworkBandwidth {
   val eligibilityProof: Int = 80 //maybe we need to add here also the size of VRF "message"
   val iterationNumber: Int = 1
   val messageHash: Int = 32 //sha-265
+  val collectionOfMarblesHash: Int = 32
 
 
   /*      MESSAGES       */
@@ -49,13 +50,14 @@ object NetworkBandwidth {
   def dmitryProtocol: MsgVolumesProfile = {
     val p = new MsgVolumesProfile
 
-    p.preRoundMsg = senderId + marblesCollectionTotal + eligibilityProof + msgSignature + 32
-    p.statusMsg = msgMetadata + iterationNumber + marblesCollectionTotal + 32
+    p.preRoundMsg = senderId + marblesCollectionTotal + eligibilityProof + msgSignature
+    p.statusMsg = msgMetadata + iterationNumber + marblesCollectionTotal
     p.svp = iterationNumber + c * p.statusMsg / 2
-    p.proposalMsg = msgMetadata + p.svp + 32
-    p.commitMsg = msgMetadata + marblesCollectionTotal + 32
-    p.commitCertificate = marblesCollectionTotal + iterationNumber + c * p.commitMsg / 2
-    p.notifyMsg = msgMetadata + p.commitCertificate + 32
+    p.proposalMsg = msgMetadata + p.svp
+    p.commitMsg = msgMetadata + collectionOfMarblesHash
+    val squeezedCommitInfo: Int = senderId + eligibilityProof + msgSignature
+    p.commitCertificate = marblesCollectionTotal + iterationNumber + c * squeezedCommitInfo / 2
+    p.notifyMsg = msgMetadata + p.commitCertificate
 
     return p
   }
