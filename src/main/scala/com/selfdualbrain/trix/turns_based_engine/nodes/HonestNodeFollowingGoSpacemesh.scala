@@ -2,6 +2,7 @@ package com.selfdualbrain.trix.turns_based_engine.nodes
 
 import com.selfdualbrain.continuum.data_structures.FastIntMap
 import com.selfdualbrain.continuum.textout.AbstractTextOutput
+import com.selfdualbrain.trix.cryptography.Hash
 import com.selfdualbrain.trix.data_structures.IndexedBatteryOfIntCounters
 import com.selfdualbrain.trix.protocol_model._
 import com.selfdualbrain.trix.turns_based_engine._
@@ -49,11 +50,11 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
 
     context.currentRound match {
       case Round.Preround =>
-        context.broadcastIncludingMyself(Message.Preround(id, inputSet))
+        context.broadcastIncludingMyself(Message.Preround(id, inputSet, context.rng.nextLong(), Hash.random(context.rng)))
 
       case Round.Status =>
         context.broadcastIncludingMyself(
-          Message.Status(id, context.iteration, certifiedIteration, acceptedSet = currentConsensusApproximation)
+          Message.Status(id, context.iteration, certifiedIteration, acceptedSet = currentConsensusApproximation, context.rng.nextLong(), Hash.random(context.rng))
         )
 
       case Round.Proposal =>
@@ -87,18 +88,18 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
 
         if (svp.isDefined) {
           output("svp-formed", svp.get.safeValue.toString)
-          context.broadcastIncludingMyself(Message.Proposal(id, context.iteration, svp.get, fakeEligibilityProof = context.rng.nextLong()))
+          context.broadcastIncludingMyself(Message.Proposal(id, context.iteration, svp.get, eligibilityProof = context.rng.nextLong(),Hash.random(context.rng)))
         }
 
       case Round.Commit =>
         commitCandidate match {
-          case Some(coll) => context.broadcastIncludingMyself(Message.Commit(id, context.iteration, commitCandidate.get))
+          case Some(coll) => context.broadcastIncludingMyself(Message.Commit(id, context.iteration, commitCandidate.get, context.rng.nextLong(), Hash.random(context.rng)))
           case None => output("commit-candidate-not-available", "proposal was missing")
         }
 
       case Round.Notify =>
         if (lastLocallyFormedCommitCertificate.isDefined)
-          context.broadcastIncludingMyself(Message.Notify(id, context.iteration, lastLocallyFormedCommitCertificate.get))
+          context.broadcastIncludingMyself(Message.Notify(id, context.iteration, lastLocallyFormedCommitCertificate.get, context.rng.nextLong(), Hash.random(context.rng)))
     }
   }
 
@@ -130,11 +131,11 @@ class HonestNodeFollowingGoSpacemesh(id: NodeId, simConfig: Config, context: Nod
         if (allProposalMessages.nonEmpty) {
           //enforce there is at most one leader (finding the proposal message with smallest fake hash)
           var bestMsgSoFar: Message.Proposal = allProposalMessages.head
-          var bestHashSoFar: Long = bestMsgSoFar.fakeEligibilityProof
+          var bestHashSoFar: Long = bestMsgSoFar.eligibilityProof
           for (msg <- allProposalMessages) {
-            if (msg.fakeEligibilityProof < bestMsgSoFar.fakeEligibilityProof) {
+            if (msg.eligibilityProof < bestMsgSoFar.eligibilityProof) {
               bestMsgSoFar = msg
-              bestHashSoFar = msg.fakeEligibilityProof
+              bestHashSoFar = msg.eligibilityProof
             }
           }
 

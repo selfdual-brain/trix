@@ -12,6 +12,7 @@ trait RandomNumberGenerator {
   def nextLong(): Long
   def nextBoolean(): Boolean
   def nextDouble(): Double
+  def nextBytes(n: Int): Array[Byte]
 }
 
 object RngFactory {
@@ -25,6 +26,7 @@ object RngFactory {
           override def nextLong(): Long = internal.nextLong()
           override def nextBoolean(): Boolean = internal.nextBoolean()
           override def nextDouble(): Double = internal.nextDouble()
+          override def nextBytes(n: Int): Array[Byte] = internal.nextBytes(n)
         }
 
       case "jdk-secure-random" =>
@@ -35,6 +37,11 @@ object RngFactory {
           override def nextLong(): Long = internal.nextLong()
           override def nextBoolean(): Boolean = internal.nextBoolean()
           override def nextDouble(): Double = internal.nextDouble()
+          override def nextBytes(n: Int): Array[Byte] = {
+            val bytes = new Array[Byte](0 max n)
+            internal.nextBytes(bytes)
+            return bytes
+          }
         }
 
       case "mersenne-twister" =>
@@ -44,6 +51,11 @@ object RngFactory {
           override def nextLong(): Long = internal.nextLong()
           override def nextBoolean(): Boolean = internal.nextBoolean()
           override def nextDouble(): Double = internal.nextDouble()
+          override def nextBytes(n: Int): Array[Byte] = {
+            val bytes = new Array[Byte](0 max n)
+            internal.nextBytes(bytes)
+            return bytes
+          }
         }
     }
 

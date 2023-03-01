@@ -3,7 +3,7 @@ package com.selfdualbrain.trix.turns_based_engine
 import com.selfdualbrain.continuum.textout.AbstractTextOutput
 import com.selfdualbrain.trix.data_structures.IndexedBatteryOfIntCounters
 import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, Message, NodeId, Round}
-import com.selfdualbrain.trix.turns_based_engine.nodes.{HonestNodeGenesisCandidate, HonestNodeWithZombieRounds}
+import com.selfdualbrain.trix.turns_based_engine.nodes.{GenesisCandidateWithCompactMessages, HonestNodeGenesisCandidate, HonestNodeWithZombieRounds}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -259,6 +259,8 @@ class SimEngineImpl(
           new HonestNodeGenesisCandidate(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
         case "improved" =>
           new HonestNodeWithZombieRounds(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
+        case "compact-genesis" =>
+          new GenesisCandidateWithCompactMessages(currentNodeId, config, context, inputSetsConfiguration.inputSetFor(currentNodeId), out)
         case other =>
           throw new RuntimeException(s"unsupported hones node algorithm mnemonic found in config: $other")
       }

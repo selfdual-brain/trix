@@ -2,9 +2,10 @@ package com.selfdualbrain.trix.turns_based_engine.nodes
 
 import com.selfdualbrain.continuum.data_structures.FastIntMap
 import com.selfdualbrain.continuum.textout.AbstractTextOutput
+import com.selfdualbrain.trix.cryptography.{CryptographicDigester, Hash, RealSha256Digester}
 import com.selfdualbrain.trix.data_structures.IndexedBatteryOfIntCounters
-import com.selfdualbrain.trix.protocol_model.{CollectionOfMarbles, CommitCertificate, Marble, Message, NodeId, Round, SafeValueProof}
-import com.selfdualbrain.trix.turns_based_engine.{Config, Node, NodeContext, NodeStats, NotifyRoundOverrideCase}
+import com.selfdualbrain.trix.protocol_model._
+import com.selfdualbrain.trix.turns_based_engine._
 
 import scala.collection.mutable
 
@@ -27,13 +28,14 @@ class GenesisCandidateWithCompactMessages(id: NodeId, simConfig: Config, context
   private var certifiedIteration: Int = -1
   private var currentConsensusApproximation: CollectionOfMarbles = inputSet
   private var commitCandidate: Option[CollectionOfMarbles] = None
+  private var commitCandidateHash: Option[Hash] = None
   private var preroundMessagesSnapshot: Option[Iterable[Message]] = None
   private var marblesWithEnoughSupport: Set[Marble] = Set.empty
   private var latestValidStatusMessages: Set[Message.Status] = Set.empty
-  private var lastLocallyFormedCommitCertificate: Option[CommitCertificate] = None
+  private var lastLocallyFormedCommitCertificate: Option[CompactCommitCertificate] = None
 
   //iteration ----> map[collectionOfMarbles ---> certificate]
-  private val certificates = new FastIntMap[mutable.HashMap[CollectionOfMarbles, CommitCertificate]](100)
+  private val certificates = new FastIntMap[mutable.HashMap[CollectionOfMarbles, CompactCommitCertificate]](100)
   private val localStatistics = new LocalNodeStats
 
   private class LocalNodeStats extends NodeStats {
@@ -54,12 +56,24 @@ class GenesisCandidateWithCompactMessages(id: NodeId, simConfig: Config, context
 
     context.currentRound match {
       case Round.Preround =>
-        context.broadcastIncludingMyself(Message.Preround(id, inputSet))
+        val msg = Message.Preround(
+          sender = id,
+          inputSet = inputSet,
+          eligibilityProof = context.rng.nextLong(),
+          signature = Hash.random(context.rng)
+        )
+        context.broadcastIncludingMyself(msg)
 
       case Round.Status =>
-        context.broadcastIncludingMyself(
-          Message.Status(id, context.iteration, certifiedIteration, acceptedSet = currentConsensusApproximation)
+        val msg = Message.Status(
+          sender = id,
+          iteration = context.iteration,
+          certifiedIteration = certifiedIteration,
+          acceptedSet = currentConsensusApproximation,
+          eligibilityProof = context.rng.nextLong(),
+          signature = Hash.random(context.rng)
         )
+        context.broadcastIncludingMyself(msg)
 
       case Round.Proposal =>
         output("leader", s"latest valid status messages: $latestValidStatusMessages")
@@ -92,18 +106,42 @@ class GenesisCandidateWithCompactMessages(id: NodeId, simConfig: Config, context
 
         if (svp.isDefined) {
           output("svp-formed", svp.get.safeValue.toString)
-          context.broadcastIncludingMyself(Message.Proposal(id, context.iteration, svp.get, fakeEligibilityProof = context.rng.nextLong()))
+          val msg = Message.Proposal(
+            sender = id,
+            iteration = context.iteration,
+            safeValueProof = svp.get,
+            eligibilityProof = context.rng.nextLong(),
+            signature = Hash.random(context.rng)
+          )
+          context.broadcastIncludingMyself(msg)
         }
 
       case Round.Commit =>
         commitCandidate match {
-          case Some(coll) => context.broadcastIncludingMyself(Message.Commit(id, context.iteration, commitCandidate.get))
-          case None => output("commit-candidate-not-available", "proposal was missing")
+          case Some(coll) =>
+            val msg: Message.CompactCommit = Message.CompactCommit(
+              sender = id,
+              iteration = context.iteration,
+              commitCandidateHash = commitCandidateHash.get,
+              eligibilityProof = context.rng.nextLong(),
+              signature = Hash.random(context.rng)
+            )
+            context.broadcastIncludingMyself(msg)
+          case None =>
+            output("commit-candidate-not-available", "proposal was missing")
         }
 
       case Round.Notify =>
-        if (lastLocallyFormedCommitCertificate.isDefined)
-          context.broadcastIncludingMyself(Message.Notify(id, context.iteration, lastLocallyFormedCommitCertificate.get))
+        if (lastLocallyFormedCommitCertificate.isDefined) {
+          val msg = Message.CompactNotify(
+            sender = id,
+            iteration = context.iteration,
+            commitCertificate = lastLocallyFormedCommitCertificate.get,
+            eligibilityProof = context.rng.nextLong(),
+            signature = Hash.random(context.rng)
+          )
+          context.broadcastIncludingMyself(msg)
+        }
     }
   }
 
@@ -135,11 +173,11 @@ class GenesisCandidateWithCompactMessages(id: NodeId, simConfig: Config, context
         if (allProposalMessages.nonEmpty) {
           //enforce there is at most one leader (finding the proposal message with smallest fake hash)
           var bestMsgSoFar: Message.Proposal = allProposalMessages.head
-          var bestHashSoFar: Long = bestMsgSoFar.fakeEligibilityProof
+          var bestHashSoFar: Long = bestMsgSoFar.eligibilityProof
           for (msg <- allProposalMessages) {
-            if (msg.fakeEligibilityProof < bestMsgSoFar.fakeEligibilityProof) {
+            if (msg.eligibilityProof < bestMsgSoFar.eligibilityProof) {
               bestMsgSoFar = msg
-              bestHashSoFar = msg.fakeEligibilityProof
+              bestHashSoFar = msg.eligibilityProof
             }
           }
 
@@ -148,25 +186,35 @@ class GenesisCandidateWithCompactMessages(id: NodeId, simConfig: Config, context
           if (isIncomingSvpValid(svp)) {
             output("accepting-winning-proposal", bestMsgSoFar.toString)
             commitCandidate = Some(bestMsgSoFar.safeValueProof.safeValue)
+            val digester: CryptographicDigester = new RealSha256Digester
+            for (element <- commitCandidate.get)
+              digester.field(element)
+            commitCandidateHash = Some(digester.generateHash())
           } else {
             //            output(code ="invalid-svp", bestMsgSoFar.toString)
             commitCandidate = None
+            commitCandidateHash = None
           }
         } else {
           output("proposal-is-missing", "")
           localStatistics.emptyProposalRounds += 1
           commitCandidate = None
+          commitCandidateHash = None
         }
 
         return None
 
       case Round.Commit =>
         if (commitCandidate.isDefined) {
-          val allCommitMessages = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.Commit]]
-          val commitMessagesVotingOnOurCandidate = allCommitMessages.filter(msg => msg.commitCandidate == commitCandidate.get)
+          val allCommitMessages = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.CompactCommit]]
+          val commitMessagesVotingOnOurCandidate = allCommitMessages.filter(msg => msg.commitCandidateHash == commitCandidateHash.get)
           val howManyOfThem = commitMessagesVotingOnOurCandidate.size
           if (howManyOfThem >= simConfig.faultyNodesTolerance + 1) {
-            lastLocallyFormedCommitCertificate = Some(CommitCertificate(acceptedSet = commitCandidate.get, context.iteration, commitMessagesVotingOnOurCandidate.toArray))
+            val squeezedCommitMessages = commitMessagesVotingOnOurCandidate.toArray.map(msg => SqueezedCommitInfo(msg.sender, msg.eligibilityProof, msg.signature))
+            lastLocallyFormedCommitCertificate = Some(CompactCommitCertificate(
+              acceptedSet = commitCandidate.get,
+              context.iteration,
+              commitMessages = squeezedCommitMessages))
             output("commit-certificate", lastLocallyFormedCommitCertificate.toString)
           } else {
             output ("commit-certificate", "[none]")
@@ -179,15 +227,15 @@ class GenesisCandidateWithCompactMessages(id: NodeId, simConfig: Config, context
         return None
 
       case Round.Notify =>
-        val effectiveNotifyMessages: Iterable[Message.Notify] = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.Notify]]
+        val effectiveNotifyMessages: Iterable[Message.CompactNotify] = filterOutEquivocationsAndDuplicates(context.inbox()).asInstanceOf[Iterable[Message.CompactNotify]]
 
         //update cached certificates
         for (msg <- effectiveNotifyMessages) {
           val certificate = msg.commitCertificate
-          val map: mutable.HashMap[CollectionOfMarbles, CommitCertificate] = certificates.get(certificate.iteration) match {
+          val map: mutable.HashMap[CollectionOfMarbles, CompactCommitCertificate] = certificates.get(certificate.iteration) match {
             case Some(m) => m
             case None =>
-              val newMap = new mutable.HashMap[CollectionOfMarbles, CommitCertificate]
+              val newMap = new mutable.HashMap[CollectionOfMarbles, CompactCommitCertificate]
               certificates += certificate.iteration -> newMap
               newMap
           }
@@ -266,7 +314,7 @@ class GenesisCandidateWithCompactMessages(id: NodeId, simConfig: Config, context
     if (msg.certifiedIteration == -1) {
       msg.acceptedSet.elements.subsetOf(marblesWithEnoughSupport)
     } else {
-      val mapOption: Option[mutable.HashMap[CollectionOfMarbles, CommitCertificate]] = certificates.get(msg.certifiedIteration)
+      val mapOption: Option[mutable.HashMap[CollectionOfMarbles, CompactCommitCertificate]] = certificates.get(msg.certifiedIteration)
       mapOption match {
         case None => false
         case Some(m) => m.contains(msg.acceptedSet)
@@ -324,17 +372,22 @@ class GenesisCandidateWithCompactMessages(id: NodeId, simConfig: Config, context
 
         for (msg <- statusMessages) {
           if (! msg.isSignatureOK) {
-
+            output(code = "invalid-svp", "proper case: wrong signature")
+            return false
           }
           if (! msg.isEligibilityProofOK) {
-
+            output(code = "invalid-svp", "proper case: wrong eligibility")
+            return false
           }
           if (msg.iteration != context.iteration) {
-
+            output(code = "invalid-svp", s"proper case: wrong iteration of status message $msg")
+            return false
           }
 
-          if (! msg.isSignatureOK || ! msg.isEligibilityProofOK || msg.iteration != context.iteration || ! isStatusMessageJustified(msg))
+          if (! isStatusMessageJustified(msg)) {
+            output(code = "invalid-svp", s"proper case: status message did not pass local validation: $msg")
             return false
+          }
         }
 
         val maxCertifiedIteration: Int = statusMessages.map(msg => msg.certifiedIteration).max

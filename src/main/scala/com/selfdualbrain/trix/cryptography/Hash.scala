@@ -1,8 +1,8 @@
 package com.selfdualbrain.trix.cryptography
 
+import com.selfdualbrain.trix.turns_based_engine.RandomNumberGenerator
+
 import java.security.MessageDigest
-import scala.util.Random
-import scala.collection.mutable.StringBuilder
 
 /**
  * Wrapper for a cryptographic hash value.
@@ -79,9 +79,8 @@ object Hash {
   /**
    * Generates fake hash using random number generator.
    */
-  def random(hashLengthInBytes: Int, rng: Random): Hash = {
-    val a = new Array[Byte](hashLengthInBytes)
-    rng.nextBytes(a)
+  def random(hashLengthInBytes: Int, rng: RandomNumberGenerator): Hash = {
+    val a = rng.nextBytes(hashLengthInBytes)
     return Hash(a)
   }
 
@@ -89,7 +88,7 @@ object Hash {
    * Generates fake hash using given random number generator.
    * This hash will be 8 bytes long (so, the size of Long values).
    */
-  def random(rng: Random): Hash = random(8, rng)
+  def random(rng: RandomNumberGenerator): Hash = random(8, rng)
 
   /**
    * Generates 64-bit digest from given string value.

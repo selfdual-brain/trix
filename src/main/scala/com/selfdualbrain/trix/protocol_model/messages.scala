@@ -2,6 +2,8 @@ package com.selfdualbrain.trix.protocol_model
 
 import com.selfdualbrain.trix.cryptography.Hash
 
+/*                                               MESSAGES                                               */
+
 sealed abstract class Message {
   def sender: NodeId
   def iteration: Int
@@ -16,7 +18,9 @@ object Message {
 
   case class Preround(
                        sender: NodeId,
-                       inputSet: CollectionOfMarbles
+                       inputSet: CollectionOfMarbles,
+                       eligibilityProof: VrfProof,
+                       signature: Ed25519Sig
                      ) extends Message {
 
     override def iteration: Int = 0
@@ -27,56 +31,70 @@ object Message {
                      sender: NodeId,
                      iteration: Int,
                      certifiedIteration: Int,
-                     acceptedSet: CollectionOfMarbles
+                     acceptedSet: CollectionOfMarbles,
+                     eligibilityProof: VrfProof,
+                     signature: Ed25519Sig
                    ) extends Message
 
   case class Proposal(
                        sender: NodeId,
                        iteration: Int,
                        safeValueProof: SafeValueProof,
-                       fakeEligibilityProof: Long //needed to ensure there is at most 1 leader (every node picks the leader with the smallest eligibility proof)
+                       eligibilityProof: VrfProof,
+                       signature: Ed25519Sig
                      ) extends Message
 
+  @deprecated
   case class Commit(
                      sender: NodeId,
                      iteration: Int,
-                     commitCandidate: CollectionOfMarbles
+                     commitCandidate: CollectionOfMarbles,
+                     eligibilityProof: VrfProof,
+                     signature: Ed25519Sig
                    ) extends Message
 
   case class CompactCommit(
                       sender: NodeId,
                       iteration: Int,
-                      commitCandidateHash: Hash
-                   )
+                      commitCandidateHash: Hash,
+                      eligibilityProof: VrfProof,
+                      signature: Ed25519Sig
+                   ) extends Message
 
+
+  @deprecated
   case class Notify(
                      sender: NodeId,
                      iteration: Int,
-                     commitCertificate: CommitCertificate
+                     commitCertificate: CommitCertificate,
+                     eligibilityProof: VrfProof,
+                     signature: Ed25519Sig
                    ) extends Message
 
   case class CompactNotify(
                       sender: NodeId,
                       iteration: Int,
-                      commitCertificate: CompactCommitCertificate
-                   )
+                      commitCertificate: CompactCommitCertificate,
+                      eligibilityProof: VrfProof,
+                      signature: Ed25519Sig
+                   ) extends Message
 }
 
-case class CommitCertificate(
-                              acceptedSet: CollectionOfMarbles,
-                              iteration: Int,
-                              commitMessages: Array[Message.Commit]) {
+/*                                               COMMIT CERTIFICATE                                               */
 
+@deprecated
+case class CommitCertificate(acceptedSet: CollectionOfMarbles, iteration: Int, commitMessages: Array[Message.Commit]) {
   override def toString: String = s"CommitCertificate(iteration=$iteration, acceptedSet=$acceptedSet, commit messages=${commitMessages.mkString(",")})"
 }
 
-case class CompactCommitCertificate(
-                              acceptedSet: CollectionOfMarbles,
-                              iteration: Int,
-                              commitMessages: Array[Message.CompactCommit]) {
+case class CompactCommitCertificate(acceptedSet: CollectionOfMarbles, iteration: Int, commitMessages: Array[SqueezedCommitInfo]) {
   override def toString: String = s"CommitCertificate(iteration=$iteration, acceptedSet=$acceptedSet, commit messages=${commitMessages.mkString(",")})"
 }
 
+case class SqueezedCommitInfo(sender: NodeId, eligibilityProof: VrfProof, signature: Ed25519Sig)
+
+
+/*                                               SAFE VALUE PROOF                                               */
 
 sealed abstract class SafeValueProof {
   def safeValue: CollectionOfMarbles

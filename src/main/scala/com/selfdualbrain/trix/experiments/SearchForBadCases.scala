@@ -5,7 +5,7 @@ import com.selfdualbrain.trix.turns_based_engine.{Config, InputSetsGenerator, Ra
 
 object SearchForBadCases {
   val HARE_ITERATIONS: Int = 20
-  val TEST_CASES_TO_CHECK: Int = 1000
+  val TEST_CASES_TO_CHECK: Int = 500
 
   val cfgTemplate = new TestCfg(0)
 

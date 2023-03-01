@@ -11,7 +11,7 @@ object SandboxCfg extends Config {
   override val marblesRangeForHonestNodes: Int = 20
 
   override val isNetworkReliable: Boolean = false
-  override val probabilityOfAMessageGettingLost: Double = 0.2
+  override val probabilityOfAMessageGettingLost: Double = 0.05
 
   override val numberOfNodes: Int = 15
   override val averageNumberOfActiveNodes: Double = 5
